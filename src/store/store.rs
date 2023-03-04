@@ -8,7 +8,7 @@ pub struct KVStore {
 
 impl KVStore {
     pub fn new(size: Option<u64>) -> Self {
-        let max_bytes = match size {
+        let max_bytes: u64 = match size {
             Some(s) => s,
             None => 100
         };
