@@ -14,4 +14,13 @@ mod store_test {
             None => panic!("Expected value to be b'42'")
         }
     }
+
+    #[test]
+    #[should_panic(expected = "Size overflow, max-size=10, current-size=11")]
+    fn test_overflow_panic() {
+        let key = b"12345";
+        let value = b"678910";
+        let mut store = KVStore::new(Some(10));
+        store.set(key, value);
+    }
 }
