@@ -1,3 +1,4 @@
+use log::{info, trace};
 use std::collections::HashMap;
 
 pub struct KVStore {
