@@ -19,6 +19,10 @@ impl KVStore {
         }
     }
 
+    fn is_overflow(&self) -> bool {
+        self.max_bytes < self.mem_size
+    }
+
     pub fn set(&mut self, k: &[u8], v: &[u8]) {
         self.data.insert(k.to_vec(), v.to_vec());
         self.mem_size += (k.len() + v.len()) as u64;
