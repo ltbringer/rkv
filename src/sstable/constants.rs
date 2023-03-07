@@ -1,0 +1,1 @@
+pub static WORD: usize = 8;
