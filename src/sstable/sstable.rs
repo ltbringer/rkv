@@ -31,3 +31,24 @@ impl SSTable {
 
         Ok(SSTable { filename, file })
     }
+
+    /**
+     * Write a key-value pair to an SSTable.
+     * 
+     * - Both key length and value length are exactly 8 bytes long because
+     *   we are using u64 for both.
+     * - Writing the key (and value) length helps us at the time of reading.
+     *   or else we would resort to delimiters and handle cases when the
+     *   delimiter character is also an input.
+     */
+    pub fn write(&mut self, key: &[u8], value: &[u8]) -> io::Result<()> {
+        let key_len = key.len() as u64;
+        let value_len = value.len() as u64;
+        let mut buf = vec![];
+        buf.write_u64::<LittleEndian>(key_len)?;
+        buf.write_all(key)?;
+        buf.write_u64::<LittleEndian>(value_len)?;
+        buf.write_all(value)?;
+        self.file.write_all(&buf)?;
+        Ok(())
+    }
