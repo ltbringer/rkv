@@ -52,3 +52,8 @@ impl SSTable {
         self.file.write_all(&buf)?;
         Ok(())
     }
+
+    fn get_kv_len(&self, buf: &Vec<u8>, i: usize) -> usize {
+        u64::from_le_bytes(buf[i..i+8].try_into().unwrap()) as usize
+    }
+
