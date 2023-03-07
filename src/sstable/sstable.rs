@@ -57,3 +57,36 @@ impl SSTable {
         u64::from_le_bytes(buf[i..i+8].try_into().unwrap()) as usize
     }
 
+    /**
+     * Read the value of a key from an SSTable.
+     * If this file was opened for writing,
+     * that would change the seek position to EOF,
+     * Hence we explicitly change the position.
+     */
+    pub fn read(&mut self, key: &[u8]) -> io::Result<Option<Vec<u8>>> {
+        self.file.seek(SeekFrom::Start(0))?;
+        let mut buf = Vec::new();
+        self.file.read_to_end(&mut buf)?;
+        let mut i: usize = 0;
+
+        while i < buf.len() {
+            let key_len = self.get_kv_len(&buf, i);
+            i += WORD;
+
+            let key_ = &buf[i..i+key_len];
+            i += key_len;
+
+            let value_len = self.get_kv_len(&buf, i);
+            i += WORD;
+
+            let value_ = &buf[i..i+value_len];
+            i += value_len;
+
+            if key_ == key {
+                return Ok(Some(value_.to_vec()))
+            }
+        }
+
+        return Ok(None)
+    }
+}
