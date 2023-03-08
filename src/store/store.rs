@@ -1,22 +1,25 @@
-use log::{info, trace};
-use std::collections::HashMap;
+use log::{debug, error};
+use std::{collections::HashMap, path::PathBuf};
+use uuid::Uuid;
+
+use crate::sstable::sstable::SSTable;
 
 pub struct KVStore {
-    data: HashMap<Vec<u8>, Vec<u8>>,
+    memtable: HashMap<Vec<u8>, Vec<u8>>,
     mem_size: u64,
-    max_bytes: u64
+    max_bytes: u64,
+    sstables: Vec<SSTable>,
+    sstable_dir: PathBuf
 }
 
 impl KVStore {
-    pub fn new(size: Option<u64>) -> Self {
-        let max_bytes = match size {
-            Some(s) => s,
-            None => 100
-        };
+    pub fn new(size: u64, sstable_dir: PathBuf) -> Self {
         KVStore {
-            data: HashMap::new(),
+            memtable: HashMap::new(),
             mem_size: 0,
-            max_bytes
+            max_bytes: size,
+            sstables: vec![],
+            sstable_dir
         }
     }
 
