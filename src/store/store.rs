@@ -1,3 +1,4 @@
+use std::io::Result;
 use log::{debug, error};
 use std::{collections::HashMap, path::PathBuf};
 use uuid::Uuid;
@@ -89,7 +90,7 @@ impl KVStore {
     }
 
     pub fn delete(&mut self, k: &[u8]) {
-        self.data.remove(k);
+        self.memtable.remove(k);
     }
 
     pub fn size(&self) -> u64 {
