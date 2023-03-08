@@ -27,6 +27,20 @@ impl KVStore {
         self.max_bytes < self.mem_size
     }
 
+    fn create_sstable(&mut self) -> Option<SSTable> {
+        let uuid = Uuid::new_v4();
+        let path = uuid.to_string();
+        let filename = self.sstable_dir.join(path);
+        match SSTable::new(filename) {
+            Ok(sstable) => Some(sstable),
+            Err(e) => {
+                error!("{}", e);
+                None
+            }
+        }
+    }
+
+    fn flush_memtable(&mut self) {
     pub fn set(&mut self, k: &[u8], v: &[u8]) {
         self.mem_size += (k.len() + v.len()) as u64;
         if self.is_overflow() {
