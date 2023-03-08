@@ -53,7 +53,7 @@ impl SSTable {
         Ok(())
     }
 
-    fn get_kv_len(&self, buf: &Vec<u8>, i: usize) -> usize {
+    fn get_kv_len_u64(&self, buf: &Vec<u8>, i: usize) -> usize {
         u64::from_le_bytes(buf[i..i+8].try_into().unwrap()) as usize
     }
 
@@ -70,13 +70,13 @@ impl SSTable {
         let mut i: usize = 0;
 
         while i < buf.len() {
-            let key_len = self.get_kv_len(&buf, i);
+            let key_len = self.get_kv_len_u64(&buf, i);
             i += WORD;
 
             let key_ = &buf[i..i+key_len];
             i += key_len;
 
-            let value_len = self.get_kv_len(&buf, i);
+            let value_len = self.get_kv_len_u64(&buf, i);
             i += WORD;
 
             let value_ = &buf[i..i+value_len];
