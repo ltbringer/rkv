@@ -71,8 +71,21 @@ impl KVStore {
         self.memtable.insert(k.to_vec(), v.to_vec());
     }
 
-    pub fn get(&self, k: &[u8]) -> Option<&Vec<u8>> {
-        self.data.get(k)
+    pub fn get(&mut self, k: &[u8]) -> Option<Vec<u8>> {
+        if let Some(v) = self.memtable.get(k) {
+            return Some(v.to_vec());
+        }
+
+        for sstable in &mut self.sstables {
+            let value = match sstable.read(k) {
+                Ok(v) => v,
+                _ => None
+            };
+            if value.is_some() {
+                return value
+            }
+        }
+        return None
     }
 
     pub fn delete(&mut self, k: &[u8]) {
