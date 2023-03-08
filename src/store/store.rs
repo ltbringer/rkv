@@ -41,6 +41,22 @@ impl KVStore {
     }
 
     fn flush_memtable(&mut self) {
+        if let Some(mut sstable) = self.create_sstable() {
+            let mut keys: Vec<Vec<u8>> = self.memtable.clone().into_keys().collect();
+            keys.sort();
+
+            for k in keys {
+                if let Some(v) = self.memtable.get(&k) {
+                    if let Err(e) = sstable.write(&k, &v) {
+                        error!("{}", e);
+                    }
+                };
+            }
+            self.memtable = HashMap::new();
+            self.mem_size = 0;
+        }
+    }
+
     pub fn set(&mut self, k: &[u8], v: &[u8]) {
         self.mem_size += (k.len() + v.len()) as u64;
         if self.is_overflow() {
