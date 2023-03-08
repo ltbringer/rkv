@@ -60,9 +60,15 @@ impl KVStore {
     pub fn set(&mut self, k: &[u8], v: &[u8]) {
         self.mem_size += (k.len() + v.len()) as u64;
         if self.is_overflow() {
-            panic!("{}", format!("Size overflow, max-size={}, current-size={}", self.max_bytes, self.mem_size));
+            debug!("{}", format!(
+                "Size overflow, max-size={}, current-size={}", 
+                self.max_bytes,
+                self.mem_size
+            ));
+
+            self.flush_memtable();
         }
-        self.data.insert(k.to_vec(), v.to_vec());
+        self.memtable.insert(k.to_vec(), v.to_vec());
     }
 
     pub fn get(&self, k: &[u8]) -> Option<&Vec<u8>> {
