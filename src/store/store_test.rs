@@ -39,7 +39,7 @@ mod store_test {
                 Ok(dir) => dir,
                 Err(_) => panic!("Failed creating tempdir.")
             };
-            let mut store = KVStore::new(5, temp_dir.into_path());
+            let mut store = KVStore::new(20, temp_dir.into_path());
             for (key , value) in setup {
                 store.set(key, value);
             }
