@@ -27,7 +27,25 @@ impl KVStore {
         self.max_bytes < self.mem_size
     }
 
-    fn create_sstable(&mut self) -> Option<SSTable> {
+    fn discover_sstables(&mut self) {
+        let mut sstables: Vec<SSTable> = vec![];
+        let sstable_dir = self.sstable_dir.join(RKVDIR).join("dat");
+        let sstable_dir_str = sstable_dir.as_path().display().to_string();
+        let glob_pattern = format!("{}/*.sstable", sstable_dir_str);
+        for entry in glob(&glob_pattern).expect("Failed to read glob pattern") {
+            match entry {
+                Ok(path) => {
+                    match SSTable::new(path.clone()) {
+                        Ok(sstable) => sstables.push(sstable),
+                        Err(e) => error!("Failed to read sstable {} because {}", path.as_path().display(), e)
+                    }
+                },
+                Err(e) => println!("{:?}", e),
+            }
+        }
+        self.sstables = sstables;
+    }
+
         let uuid = Uuid::new_v4();
         let path = uuid.to_string();
         let filename = self.sstable_dir.join(path);
