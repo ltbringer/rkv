@@ -1,8 +1,12 @@
 use log::{debug, error};
 use std::{collections::HashMap, path::PathBuf};
+use std::fs::create_dir_all;
+
 use uuid::Uuid;
+use glob::glob;
 
 use crate::sstable::sstable::SSTable;
+use crate::sstable::constants::{TOMBSTONE, RKVDIR};
 
 pub struct KVStore {
     memtable: HashMap<Vec<u8>, Vec<u8>>,
