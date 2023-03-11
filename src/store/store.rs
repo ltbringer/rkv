@@ -46,14 +46,17 @@ impl KVStore {
         self.sstables = sstables;
     }
 
+    fn create_sstable(&mut self) -> SSTable {
         let uuid = Uuid::new_v4();
-        let path = uuid.to_string();
-        let filename = self.sstable_dir.join(path);
-        match SSTable::new(filename) {
-            Ok(sstable) => Some(sstable),
-            Err(e) => {
-                error!("{}", e);
-                None
+        let idx = self.sstables.len() + 1;
+        let slug = format!("{}-{}.sstable", idx, uuid);
+        let dirname = self.sstable_dir
+            .join(RKVDIR)
+            .join("dat");
+        create_dir_all(dirname.clone()).unwrap();
+        let filename = dirname.join(slug);
+        SSTable::new(filename).unwrap()
+    }
             }
         }
     }
