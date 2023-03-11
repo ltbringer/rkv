@@ -85,20 +85,21 @@ impl KVStore {
     }
 
     fn flush_memtable(&mut self) {
-        if let Some(mut sstable) = self.create_sstable() {
-            let mut keys: Vec<Vec<u8>> = self.memtable.clone().into_keys().collect();
-            keys.sort();
+        let mut sstable = self.create_sstable();
+        let mut keys: Vec<Vec<u8>> = self.memtable.clone().into_keys().collect();
+        keys.sort();
 
-            for k in keys {
-                if let Some(v) = self.memtable.get(&k) {
-                    if let Err(e) = sstable.write(&k, &v) {
-                        error!("{}", e);
-                    }
-                };
-            }
-            self.memtable = HashMap::new();
-            self.mem_size = 0;
+        for k in keys {
+            if let Some(v) = self.memtable.get(&k) {
+                if let Err(e) = sstable.write(&k, &v) {
+                    error!("{}", e);
+                }
+            };
         }
+        self.sstables.push(sstable);
+
+        self.memtable = HashMap::new();
+        self.mem_size = 0;
     }
 
     pub fn set(&mut self, k: &[u8], v: &[u8]) {
@@ -115,21 +116,19 @@ impl KVStore {
         self.memtable.insert(k.to_vec(), v.to_vec());
     }
 
-    pub fn get(&mut self, k: &[u8]) -> Option<Vec<u8>> {
-        if let Some(v) = self.memtable.get(k) {
-            return Some(v.to_vec());
-        }
-
+    fn get_from_sstable(&mut self, k: &[u8]) -> Option<Vec<u8>> {
         for sstable in &mut self.sstables {
-            let value = match sstable.read(k) {
+            let value = match sstable.scan(k) {
                 Ok(v) => v,
                 _ => None
             };
-            if value.is_some() {
-                return value
+            if let Some(v) = value {
+                return if v == TOMBSTONE { None } else { Some(v) }
             }
         }
         return None
+    }
+
     pub fn get(&mut self, k: &[u8]) -> Option<Vec<u8>> {
         if let Some(v) = self.memtable.get(k) {
             if v == TOMBSTONE {
