@@ -137,7 +137,12 @@ impl KVStore {
     }
 
     pub fn delete(&mut self, k: &[u8]) {
-        self.memtable.remove(k);
+        if let Some(_) = self.memtable.remove(k) {
+            return ()
+        };
+        if let Some(_) = self.get_from_sstable(k) {
+            self.memtable.insert(k.to_vec(), TOMBSTONE.to_vec());
+        }
     }
 
     pub fn size(&self) -> u64 {
