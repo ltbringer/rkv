@@ -98,7 +98,7 @@ impl SSTable {
      * that would change the seek position to EOF,
      * Hence we explicitly change the position.
      */
-    pub fn read(&mut self, key: &[u8]) -> io::Result<Option<Vec<u8>>> {
+    pub fn scan(&mut self, key: &[u8]) -> io::Result<Option<Vec<u8>>> {
         self.file.seek(SeekFrom::Start(0))?;
         let mut buf = Vec::new();
         self.file.read_to_end(&mut buf)?;
