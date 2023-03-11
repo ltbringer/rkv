@@ -52,4 +52,34 @@ mod store_test {
         }));
         assert!(result.is_ok());
     }
+
+    #[test]
+    fn test_delete_key() {
+        let setup = [(b"key1", b"value1"), 
+            (b"key2", b"value2"), 
+            (b"key3", b"value3"), 
+            (b"key4", b"value4"), 
+            (b"key5", b"value5"), 
+            (b"key6", b"value6"), 
+            (b"key7", b"value7")];
+
+        let result = panic::catch_unwind(AssertUnwindSafe(|| {
+            let temp_dir = match TempDir::new() {
+                Ok(dir) => dir,
+                Err(_) => panic!("Failed creating tempdir.")
+            };
+            let mut store = KVStore::new(20, temp_dir.into_path());
+            for (key , value) in setup {
+                store.set(key, value);
+            }
+
+            store.delete(b"key2");
+
+            if let Some(v) = store.get(b"key2") {
+                panic!("Unexpected value {:?} found", v);
+            }
+            drop(store);
+        }));
+        assert!(result.is_ok());
+    }
 }
