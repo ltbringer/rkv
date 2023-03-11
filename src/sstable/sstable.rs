@@ -1,8 +1,10 @@
-use std::fs::{File, OpenOptions};
+use std::collections::HashMap;
+use std::fs::{File, OpenOptions, remove_file};
 use std::io::{self, Write, Seek, SeekFrom, Read};
 use std::path::PathBuf;
+use log::error;
 use byteorder::{LittleEndian, WriteBytesExt};
-use super::constants::WORD;
+use super::constants::{WORD, TOMBSTONE};
 
 pub struct SSTable {
     filename: PathBuf,
