@@ -22,7 +22,7 @@ mod sstable_test {
                 Ok(_) => (),
                 Err(_) => panic!("Failed write to sstable.")
             };
-            let value_read = match sstable.read(key) {
+            let value_read = match sstable.scan(key) {
                 Ok(Some(v)) => v,
                 Err(e) => panic!("{}", e),
                 _ => panic!("Failed to read value.")
