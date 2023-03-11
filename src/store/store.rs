@@ -126,6 +126,14 @@ impl KVStore {
             }
         }
         return None
+    pub fn get(&mut self, k: &[u8]) -> Option<Vec<u8>> {
+        if let Some(v) = self.memtable.get(k) {
+            if v == TOMBSTONE {
+                return None
+            }
+            return Some(v.to_vec());
+        }
+        return self.get_from_sstable(k)
     }
 
     pub fn delete(&mut self, k: &[u8]) {
