@@ -6,7 +6,7 @@ use uuid::Uuid;
 use glob::glob;
 
 use crate::sstable::sstable::SSTable;
-use crate::sstable::constants::{TOMBSTONE, RKVDIR};
+use crate::sstable::constants::{TOMBSTONE, RKV};
 
 pub struct KVStore {
     memtable: HashMap<Vec<u8>, Vec<u8>>,
@@ -33,7 +33,7 @@ impl KVStore {
 
     fn discover_sstables(&mut self) {
         let mut sstables: Vec<SSTable> = vec![];
-        let sstable_dir = self.sstable_dir.join(RKVDIR).join("dat");
+        let sstable_dir = self.sstable_dir.join(RKV).join("dat");
         let sstable_dir_str = sstable_dir.as_path().display().to_string();
         let glob_pattern = format!("{}/*.sstable", sstable_dir_str);
         for entry in glob(&glob_pattern).expect("Failed to read glob pattern") {
@@ -53,10 +53,10 @@ impl KVStore {
     fn create_sstable(&mut self) -> SSTable {
         let uuid = Uuid::new_v4();
         let idx = self.sstables.len() + 1;
-        let slug = format!("{}-{}.sstable", idx, uuid);
+        let slug = format!("{}-{}.{}", idx, uuid, RKV);
         let dirname = self.sstable_dir
-            .join(RKVDIR)
-            .join("dat");
+            .join(RKV)
+            .join("data");
         create_dir_all(dirname.clone()).unwrap();
         let filename = dirname.join(slug);
         SSTable::new(filename).unwrap()
