@@ -57,7 +57,26 @@ impl KVStore {
         let filename = dirname.join(slug);
         SSTable::new(filename).unwrap()
     }
+
+    fn compaction(&mut self) {
+        let mut store: HashMap<Vec<u8>, Vec<u8>> = HashMap::new();
+        for sstable in &mut self.sstables {
+            if let Ok(hashmap) = sstable.as_hashmap() {
+                store.extend(hashmap)
             }
+        }
+        let mut keys: Vec<Vec<u8>> = store.clone().into_keys().collect();
+        keys.sort();
+
+        let mut sstable = self.create_sstable();
+        keys.iter()
+            .filter_map(|k| store.get(k).map(|v| (k, v)))
+            .try_for_each(|(k, v)| sstable.write(k, v))
+            .unwrap_or_else(|e| error!("{}", e));
+        self.sstables = vec![sstable];
+
+        for i_sstable in &self.sstables {
+            i_sstable.delete();
         }
     }
 
