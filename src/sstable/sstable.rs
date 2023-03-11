@@ -90,7 +90,9 @@ impl SSTable {
             let value_ = &buf[i..i+value_len];
             i += value_len;
 
-            if key_ == key {
+            let is_tombstone = value_ == TOMBSTONE;
+
+            if key_ == key && !is_tombstone {
                 return Ok(Some(value_.to_vec()))
             }
         }
