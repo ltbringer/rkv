@@ -104,6 +104,9 @@ impl KVStore {
 
     pub fn set(&mut self, k: &[u8], v: &[u8]) {
         self.mem_size += (k.len() + v.len()) as u64;
+        if self.is_overflow() && self.memtable.is_empty() {
+            panic!("Store size ({} bytes) should be greater than {} bytes (size of key-value pair being inserted)!", self.max_bytes, self.mem_size);
+        }
         if self.is_overflow() {
             debug!("{}", format!(
                 "Size overflow, max-size={}, current-size={}", 
