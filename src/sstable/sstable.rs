@@ -32,6 +32,14 @@ impl SSTable {
         Ok(SSTable { filename, file })
     }
 
+    pub fn delete(&self) {
+        let filename = self.filename.clone();
+        let display_name = filename.clone().as_path().display().to_string();
+        if let Err(e) = remove_file(filename) {
+            error!("Failed deleting file {} {}", display_name, e);
+        }
+    }
+
     /**
      * Write a key-value pair to an SSTable.
      * 
