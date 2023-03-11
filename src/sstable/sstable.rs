@@ -65,6 +65,33 @@ impl SSTable {
         u64::from_le_bytes(buf[i..i+8].try_into().unwrap()) as usize
     }
 
+    pub fn as_hashmap(&mut self) -> io::Result<HashMap<Vec<u8>, Vec<u8>>> {
+        self.file.seek(SeekFrom::Start(0))?;
+        let mut buf = Vec::new();
+        self.file.read_to_end(&mut buf)?;
+        let mut i: usize = 0;
+        let mut hashmap: HashMap<Vec<u8>, Vec<u8>> = HashMap::new();
+
+        while i < buf.len() {
+            let key_len = self.get_kv_len_u64(&buf, i);
+            i += WORD;
+
+            let key_ = &buf[i..i+key_len];
+            i += key_len;
+
+            let value_len = self.get_kv_len_u64(&buf, i);
+            i += WORD;
+
+            let value_ = &buf[i..i+value_len];
+            i += value_len;
+
+            if value_ != TOMBSTONE {
+                hashmap.insert(key_.to_vec(), value_.to_vec());
+            }
+        }
+        Ok(hashmap)
+    }
+
     /**
      * Read the value of a key from an SSTable.
      * If this file was opened for writing,
