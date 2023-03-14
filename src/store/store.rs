@@ -18,13 +18,15 @@ pub struct KVStore {
 
 impl KVStore {
     pub fn new(size: u64, sstable_dir: PathBuf) -> Self {
-        KVStore {
+        let mut store = KVStore {
             memtable: HashMap::new(),
             mem_size: 0,
             max_bytes: size,
             sstables: vec![],
             sstable_dir
-        }
+        };
+        store.discover_sstables();
+        return store
     }
 
     fn is_overflow(&self) -> bool {
@@ -35,10 +37,11 @@ impl KVStore {
         self.sstables.len()
     }
 
+    fn discover_sstables(&mut self) -> Vec<SSTable> {
         let mut sstables: Vec<SSTable> = vec![];
         let sstable_dir = self.sstable_dir.join(RKV).join("dat");
         let sstable_dir_str = sstable_dir.as_path().display().to_string();
-        let glob_pattern = format!("{}/*.sstable", sstable_dir_str);
+        let glob_pattern = format!("{}/*.{}", sstable_dir_str, RKV);
         for entry in glob(&glob_pattern).expect("Failed to read glob pattern") {
             match entry {
                 Ok(path) => {
@@ -50,7 +53,7 @@ impl KVStore {
                 Err(e) => println!("{:?}", e),
             }
         }
-        self.sstables = sstables;
+        sstables
     }
 
     fn create_sstable(&mut self) -> SSTable {
