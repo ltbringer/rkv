@@ -31,7 +31,10 @@ impl KVStore {
         self.max_bytes < self.mem_size
     }
 
-    fn discover_sstables(&mut self) {
+    pub fn get_sstables_count(&self) -> usize {
+        self.sstables.len()
+    }
+
         let mut sstables: Vec<SSTable> = vec![];
         let sstable_dir = self.sstable_dir.join(RKV).join("dat");
         let sstable_dir_str = sstable_dir.as_path().display().to_string();
