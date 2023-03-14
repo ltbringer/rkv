@@ -68,7 +68,7 @@ impl KVStore {
         SSTable::new(filename).unwrap()
     }
 
-    fn compaction(&mut self) {
+    pub fn compaction(&mut self) {
         let mut store: HashMap<Vec<u8>, Vec<u8>> = HashMap::new();
         for sstable in &mut self.sstables {
             if let Ok(hashmap) = sstable.as_hashmap() {
