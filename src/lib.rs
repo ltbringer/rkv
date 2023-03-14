@@ -1,2 +1,2 @@
-mod store;
+pub mod store;
 mod sstable;
