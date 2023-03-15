@@ -1,19 +1,21 @@
 use log::{debug, error};
-use std::{collections::HashMap, path::PathBuf};
 use std::fs::create_dir_all;
+use std::sync::{Arc, Mutex};
+use std::thread;
+use std::{collections::HashMap, path::PathBuf};
 
-use uuid::Uuid;
 use glob::glob;
+use uuid::Uuid;
 
+use crate::sstable::constants::{RKV, TOMBSTONE};
 use crate::sstable::sstable::SSTable;
-use crate::sstable::constants::{TOMBSTONE, RKV};
 
 pub struct KVStore {
     memtable: HashMap<Vec<u8>, Vec<u8>>,
     mem_size: u64,
     max_bytes: u64,
     sstables: Vec<SSTable>,
-    sstable_dir: PathBuf
+    sstable_dir: PathBuf,
 }
 
 impl KVStore {
@@ -23,10 +25,10 @@ impl KVStore {
             mem_size: 0,
             max_bytes: size,
             sstables: vec![],
-            sstable_dir
+            sstable_dir,
         };
         store.discover_sstables();
-        return store
+        return store;
     }
 
     fn is_overflow(&self) -> bool {
@@ -44,11 +46,13 @@ impl KVStore {
         let glob_pattern = format!("{}/*.{}", sstable_dir_str, RKV);
         for entry in glob(&glob_pattern).expect("Failed to read glob pattern") {
             match entry {
-                Ok(path) => {
-                    match SSTable::new(path.clone()) {
-                        Ok(sstable) => sstables.push(sstable),
-                        Err(e) => error!("Failed to read sstable {} because {}", path.as_path().display(), e)
-                    }
+                Ok(path) => match SSTable::new(path.clone(), true, true, false) {
+                    Ok(sstable) => sstables.push(sstable),
+                    Err(e) => error!(
+                        "Failed to read sstable {} because {}",
+                        path.as_path().display(),
+                        e
+                    ),
                 },
                 Err(e) => println!("{:?}", e),
             }
@@ -95,11 +99,13 @@ impl KVStore {
             panic!("Store size ({} bytes) should be greater than {} bytes (size of key-value pair being inserted)!", self.max_bytes, self.mem_size);
         }
         if self.is_overflow() {
-            debug!("{}", format!(
-                "Size overflow, max-size={}, current-size={}", 
-                self.max_bytes,
-                self.mem_size
-            ));
+            debug!(
+                "{}",
+                format!(
+                    "Size overflow, max-size={}, current-size={}",
+                    self.max_bytes, self.mem_size
+                )
+            );
 
             self.flush_memtable();
         }
@@ -110,23 +116,23 @@ impl KVStore {
         for sstable in &mut self.sstables {
             let value = match sstable.scan(k) {
                 Ok(v) => v,
-                _ => None
+                _ => None,
             };
             if let Some(v) = value {
-                return if v == TOMBSTONE { None } else { Some(v) }
+                return if v == TOMBSTONE { None } else { Some(v) };
             }
         }
-        return None
+        return None;
     }
 
     pub fn get(&mut self, k: &[u8]) -> Option<Vec<u8>> {
         if let Some(v) = self.memtable.get(k) {
             if v == TOMBSTONE {
-                return None
+                return None;
             }
             return Some(v.to_vec());
         }
-        return self.get_from_sstable(k)
+        return self.get_from_sstable(k);
     }
 
     pub fn delete(&mut self, k: &[u8]) {
