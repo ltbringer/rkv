@@ -56,42 +56,23 @@ impl KVStore {
         sstables
     }
 
-    fn create_sstable(&mut self) -> SSTable {
-        let uuid = Uuid::new_v4();
-        let idx = self.sstables.len() + 1;
-        let slug = format!("{}-{}.{}", idx, uuid, RKV);
-        let dirname = self.sstable_dir
-            .join(RKV)
-            .join("data");
-        create_dir_all(dirname.clone()).unwrap();
-        let filename = dirname.join(slug);
-        SSTable::new(filename).unwrap()
-    }
-
     pub fn compaction(&mut self) {
-        let mut store: HashMap<Vec<u8>, Vec<u8>> = HashMap::new();
-        for sstable in &mut self.sstables {
-            if let Ok(hashmap) = sstable.as_hashmap() {
-                store.extend(hashmap)
-            }
-        }
-        let mut keys: Vec<Vec<u8>> = store.clone().into_keys().collect();
-        keys.sort();
-
-        let mut sstable = self.create_sstable();
-        keys.iter()
-            .filter_map(|k| store.get(k).map(|v| (k, v)))
-            .try_for_each(|(k, v)| sstable.write(k, v))
-            .unwrap_or_else(|e| error!("{}", e));
-        self.sstables = vec![sstable];
-
-        for i_sstable in &self.sstables {
-            i_sstable.delete();
-        }
+        let sstables_ptr = Arc::new(Mutex::new(self.sstables.clone()));
+        let sstable_dir = self.sstable_dir.clone();
+        let combined_table = thread::spawn(move || {
+            let locked_sstables = sstables_ptr.lock();
+            let combined_table = match locked_sstables {
+                Ok(mut sstables) => compaction(&mut sstables, &sstable_dir),
+                Err(e) => panic!("oops {}", e),
+            };
+            combined_table
+        })
+        .join().unwrap();
+        self.sstables = vec![combined_table];
     }
 
     fn flush_memtable(&mut self) {
-        let mut sstable = self.create_sstable();
+        let mut sstable = create_sstable((&self.sstables).len(), &self.sstable_dir);
         let mut keys: Vec<Vec<u8>> = self.memtable.clone().into_keys().collect();
         keys.sort();
 
