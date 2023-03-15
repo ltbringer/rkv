@@ -12,7 +12,7 @@ mod sstable_test {
                 Err(_) => panic!("Failed creating tempdir.")
             };
             let filename = temp_dir.path().join("test.sstable");
-            let mut sstable = match SSTable::new(filename.clone()) {
+            let mut sstable = match SSTable::new(filename.clone(), true, true, true) {
                 Ok(sst) => sst,
                 Err(_) => panic!("Failed creating sstable.")
             };
