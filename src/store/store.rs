@@ -71,7 +71,8 @@ impl KVStore {
             };
             combined_table
         })
-        .join().unwrap();
+        .join()
+        .unwrap();
         self.sstables = vec![combined_table];
     }
 
@@ -137,7 +138,7 @@ impl KVStore {
 
     pub fn delete(&mut self, k: &[u8]) {
         if let Some(_) = self.memtable.remove(k) {
-            return ()
+            return ();
         };
         if let Some(_) = self.get_from_sstable(k) {
             self.memtable.insert(k.to_vec(), TOMBSTONE.to_vec());

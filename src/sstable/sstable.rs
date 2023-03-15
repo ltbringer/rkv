@@ -1,34 +1,39 @@
-use std::collections::HashMap;
-use std::fs::{File, OpenOptions, remove_file};
-use std::io::{self, Write, Seek, SeekFrom, Read};
-use std::path::PathBuf;
-use log::error;
+use super::constants::{TOMBSTONE, WORD};
 use byteorder::{LittleEndian, WriteBytesExt};
-use super::constants::{WORD, TOMBSTONE};
+use log::error;
+use std::collections::HashMap;
+use std::fs::{remove_file, File, OpenOptions};
+use std::io::{self, Read, Seek, SeekFrom, Write};
+use std::path::PathBuf;
 
 #[derive(Clone)]
 pub struct SSTable {
     filename: PathBuf,
     read: bool,
     write: bool,
-    create: bool
+    create: bool,
 }
 
 impl SSTable {
     /**
      * The anatomy of an SSTable:
-     * 
+     *
      * |0|0|0|0|0|0|0|9|t|e|s|t|_|m|o|d|e|0|0|0|0|0|0|0|7|1|2|3|4|5|6|7|
      * |<- Key length->|<-key contents-->|<- Val length->|<-- Value -->|
      * |0|0|0|0|0|0|0|4|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|_
      * |<- Key length->| ...
-     * 
-     * Notice: the key `test_mode` is 9 characters long. That's what the 
+     *
+     * Notice: the key `test_mode` is 9 characters long. That's what the
      * `Key length` is trying to specify. The same explains the following
-     * `Val length`. 
+     * `Val length`.
      */
     pub fn new(filename: PathBuf, read: bool, write: bool, create: bool) -> io::Result<SSTable> {
-        Ok(SSTable { filename, read, write, create })
+        Ok(SSTable {
+            filename,
+            read,
+            write,
+            create,
+        })
     }
 
     pub fn delete(&self) {
@@ -49,7 +54,7 @@ impl SSTable {
 
     /**
      * Write a key-value pair to an SSTable.
-     * 
+     *
      * - Both key length and value length are exactly 8 bytes long because
      *   we are using u64 for both.
      * - Writing the key (and value) length helps us at the time of reading.
@@ -71,7 +76,7 @@ impl SSTable {
     }
 
     fn get_kv_len_u64(&self, buf: &Vec<u8>, i: usize) -> usize {
-        u64::from_le_bytes(buf[i..i+8].try_into().unwrap()) as usize
+        u64::from_le_bytes(buf[i..i + 8].try_into().unwrap()) as usize
     }
 
     pub fn as_hashmap(&mut self) -> io::Result<HashMap<Vec<u8>, Vec<u8>>> {
@@ -86,13 +91,13 @@ impl SSTable {
             let key_len = self.get_kv_len_u64(&buf, i);
             i += WORD;
 
-            let key_ = &buf[i..i+key_len];
+            let key_ = &buf[i..i + key_len];
             i += key_len;
 
             let value_len = self.get_kv_len_u64(&buf, i);
             i += WORD;
 
-            let value_ = &buf[i..i+value_len];
+            let value_ = &buf[i..i + value_len];
             i += value_len;
 
             if value_ != TOMBSTONE {
@@ -119,22 +124,22 @@ impl SSTable {
             let key_len = self.get_kv_len_u64(&buf, i);
             i += WORD;
 
-            let key_ = &buf[i..i+key_len];
+            let key_ = &buf[i..i + key_len];
             i += key_len;
 
             let value_len = self.get_kv_len_u64(&buf, i);
             i += WORD;
 
-            let value_ = &buf[i..i+value_len];
+            let value_ = &buf[i..i + value_len];
             i += value_len;
 
             let is_tombstone = value_ == TOMBSTONE;
 
             if key_ == key && !is_tombstone {
-                return Ok(Some(value_.to_vec()))
+                return Ok(Some(value_.to_vec()));
             }
         }
 
-        return Ok(None)
+        return Ok(None);
     }
 }
