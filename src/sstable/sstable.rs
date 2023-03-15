@@ -6,9 +6,12 @@ use log::error;
 use byteorder::{LittleEndian, WriteBytesExt};
 use super::constants::{WORD, TOMBSTONE};
 
+#[derive(Clone)]
 pub struct SSTable {
     filename: PathBuf,
-    file: File
+    read: bool,
+    write: bool,
+    create: bool
 }
 
 impl SSTable {
@@ -24,14 +27,8 @@ impl SSTable {
      * `Key length` is trying to specify. The same explains the following
      * `Val length`. 
      */
-    pub fn new(filename: PathBuf) -> io::Result<SSTable> {
-        let file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .open(filename.clone())?;
-
-        Ok(SSTable { filename, file })
+    pub fn new(filename: PathBuf, read: bool, write: bool, create: bool) -> io::Result<SSTable> {
+        Ok(SSTable { filename, read, write, create })
     }
 
     pub fn delete(&self) {
@@ -40,6 +37,14 @@ impl SSTable {
         if let Err(e) = remove_file(filename) {
             error!("Failed deleting file {} {}", display_name, e);
         }
+    }
+
+    fn open(&self) -> io::Result<File> {
+        OpenOptions::new()
+            .read(self.read)
+            .write(self.write)
+            .create(self.create)
+            .open(&self.filename)
     }
 
     /**
@@ -52,6 +57,8 @@ impl SSTable {
      *   delimiter character is also an input.
      */
     pub fn write(&mut self, key: &[u8], value: &[u8]) -> io::Result<()> {
+        let mut file = self.open()?;
+        file.seek(SeekFrom::End(0))?;
         let key_len = key.len() as u64;
         let value_len = value.len() as u64;
         let mut buf = vec![];
@@ -59,7 +66,7 @@ impl SSTable {
         buf.write_all(key)?;
         buf.write_u64::<LittleEndian>(value_len)?;
         buf.write_all(value)?;
-        self.file.write_all(&buf)?;
+        file.write_all(&buf)?;
         Ok(())
     }
 
@@ -68,9 +75,10 @@ impl SSTable {
     }
 
     pub fn as_hashmap(&mut self) -> io::Result<HashMap<Vec<u8>, Vec<u8>>> {
-        self.file.seek(SeekFrom::Start(0))?;
+        let mut file = self.open()?;
+        file.seek(SeekFrom::Start(0))?;
         let mut buf = Vec::new();
-        self.file.read_to_end(&mut buf)?;
+        file.read_to_end(&mut buf)?;
         let mut i: usize = 0;
         let mut hashmap: HashMap<Vec<u8>, Vec<u8>> = HashMap::new();
 
@@ -101,9 +109,10 @@ impl SSTable {
      * Hence we explicitly change the position.
      */
     pub fn scan(&mut self, key: &[u8]) -> io::Result<Option<Vec<u8>>> {
-        self.file.seek(SeekFrom::Start(0))?;
+        let mut file = self.open()?;
+        file.seek(SeekFrom::Start(0))?;
         let mut buf = Vec::new();
-        self.file.read_to_end(&mut buf)?;
+        file.read_to_end(&mut buf)?;
         let mut i: usize = 0;
 
         while i < buf.len() {
