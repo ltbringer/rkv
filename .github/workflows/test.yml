@@ -1,7 +1,7 @@
 # Based on https://github.com/actions-rs/meta/blob/master/recipes/quickstart.md
 on: [push, pull_request]
 
-name: Quickstart
+name: Test
 
 jobs:
   check:
