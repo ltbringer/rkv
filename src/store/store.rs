@@ -114,7 +114,7 @@ impl KVStore {
     }
 
     fn get_from_sstable(&mut self, k: &[u8]) -> Option<Vec<u8>> {
-        for sstable in &mut self.sstables {
+        for sstable in &mut self.sstables.iter_mut().rev() {
             let value = match sstable.scan(k) {
                 Ok(v) => v,
                 _ => None,

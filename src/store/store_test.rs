@@ -27,13 +27,14 @@ mod store_test {
     #[test]
     fn test_sstable_read() {
         let setup = [
-            (b"key1", b"value1"),
-            (b"key2", b"value2"),
-            (b"key3", b"value3"),
-            (b"key4", b"value4"),
-            (b"key5", b"value5"),
-            (b"key6", b"value6"),
-            (b"key7", b"value7"),
+            (b"key1", b"value100"),
+            (b"key2", b"value200"),
+            (b"key3", b"value300"),
+            (b"key1", b"value121"),
+            (b"key4", b"value400"),
+            (b"key5", b"value500"),
+            (b"key6", b"value600"),
+            (b"key7", b"value700"),
         ];
 
         let result = panic::catch_unwind(AssertUnwindSafe(|| {
@@ -46,8 +47,13 @@ mod store_test {
                 store.set(key, value);
             }
 
+            match store.get(b"key4") {
+                Some(v) => assert_eq!(v, b"value400", "Value mismatch"),
+                None => panic!("Expected a value to be found'"),
+            }
+
             match store.get(b"key1") {
-                Some(v) => assert_eq!(v, b"value1", "Expected value to be b'value1'"),
+                Some(v) => assert_eq!(v, b"value121", "Value mismatch"),
                 None => panic!("Expected a value to be found'"),
             }
             drop(store);
