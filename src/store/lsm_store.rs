@@ -16,12 +16,12 @@ use crate::sstable::sst::SSTable;
 /// # Example
 /// ```
 /// use std::path::PathBuf;
-/// use rkv::store::store::KVStore;
+/// use rkv::store::lsm_store::KVStore;
 ///
 /// let mut store = KVStore::new(100, PathBuf::from("/tmp/.tmp20aefd00/book_ratings/"));
 /// store.set(b"The Rust Programming language", b"5");
 /// if let Some(v) = store.get(b"The Rust Programming language") {
-///     assert_eq!(v, b"5".to_vec());
+///     assert_eq!(v.as_slice(), b"5");
 /// }
 /// ```
 pub struct KVStore {
@@ -80,6 +80,19 @@ impl KVStore {
         sstables
     }
 
+    /// Reduce number of SSTables.
+    /// 
+    /// To read K-V pairs from sstabls, we need to:
+    /// 1. For each file:
+    /// 1. Load the file contents into a buffer.
+    /// 1. Search the key.
+    /// 
+    /// This gets very slow as the number of sstables increase. 
+    /// 1. Keys that are updated frequently.
+    /// 1. Keys that have been deleted.
+    /// 
+    /// These will occupy extra space in multiple sstables. We can periodically clean up and
+    /// combine sstables into single table. Since this process is also slow, we run it on a separate thread.
     pub fn compaction(&mut self) {
         let sstables_ptr = Arc::new(Mutex::new(self.sstables.clone()));
         let sstable_dir = self.sstable_dir.clone();
@@ -95,6 +108,7 @@ impl KVStore {
         self.sstables = vec![combined_table];
     }
 
+    /// Drain key-value pairs into an sstable.
     fn flush_memtable(&mut self) {
         let mut sstable = create_sstable(self.sstables.len(), &self.sstable_dir);
         let mut keys: Vec<Vec<u8>> = self.memtable.clone().into_keys().collect();
@@ -108,7 +122,6 @@ impl KVStore {
             };
         }
         self.sstables.push(sstable);
-
         self.memtable = HashMap::new();
         self.mem_size = 0;
     }
