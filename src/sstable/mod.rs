@@ -1,4 +1,4 @@
 pub mod constants;
-pub mod sstable;
+pub mod sst;
 #[cfg(test)]
 mod sstable_test;

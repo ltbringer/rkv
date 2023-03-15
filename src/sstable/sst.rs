@@ -1,4 +1,4 @@
-use super::constants::{TOMBSTONE, WORD};
+use crate::sstable::constants::{TOMBSTONE, WORD};
 use byteorder::{LittleEndian, WriteBytesExt};
 use log::error;
 use std::collections::HashMap;
@@ -38,7 +38,7 @@ impl SSTable {
 
     pub fn delete(&self) {
         let filename = self.filename.clone();
-        let display_name = filename.clone().as_path().display().to_string();
+        let display_name = filename.as_path().display().to_string();
         if let Err(e) = remove_file(filename) {
             error!("Failed deleting file {} {}", display_name, e);
         }
@@ -75,7 +75,7 @@ impl SSTable {
         Ok(())
     }
 
-    fn get_kv_len_u64(&self, buf: &Vec<u8>, i: usize) -> usize {
+    fn get_kv_len_u64(&self, buf: &[u8], i: usize) -> usize {
         u64::from_le_bytes(buf[i..i + 8].try_into().unwrap()) as usize
     }
 
@@ -140,6 +140,6 @@ impl SSTable {
             }
         }
 
-        return Ok(None);
+        Ok(None)
     }
 }

@@ -1,6 +1,6 @@
 #[cfg(test)]
-mod sstable_test {
-    use crate::sstable::sstable::SSTable;
+mod test {
+    use crate::sstable::sst::SSTable;
     use std::panic::{self, AssertUnwindSafe};
     use tempfile::TempDir;
 
@@ -12,7 +12,7 @@ mod sstable_test {
                 Err(_) => panic!("Failed creating tempdir."),
             };
             let filename = temp_dir.path().join("test.sstable");
-            let mut sstable = match SSTable::new(filename.clone(), true, true, true) {
+            let mut sstable = match SSTable::new(filename, true, true, true) {
                 Ok(sst) => sst,
                 Err(_) => panic!("Failed creating sstable."),
             };

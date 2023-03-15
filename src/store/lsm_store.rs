@@ -1,5 +1,6 @@
 use log::{debug, error};
 use std::fs::create_dir_all;
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::{collections::HashMap, path::PathBuf};
@@ -8,7 +9,7 @@ use glob::glob;
 use uuid::Uuid;
 
 use crate::sstable::constants::{RKV, TOMBSTONE};
-use crate::sstable::sstable::SSTable;
+use crate::sstable::sst::SSTable;
 
 /// A key value store implemented as an LSM Tree.
 ///
@@ -42,7 +43,7 @@ impl KVStore {
             sstable_dir,
         };
         store.discover_sstables();
-        return store;
+        store
     }
 
     fn is_overflow(&self) -> bool {
@@ -79,11 +80,10 @@ impl KVStore {
         let sstable_dir = self.sstable_dir.clone();
         let combined_table = thread::spawn(move || {
             let locked_sstables = sstables_ptr.lock();
-            let combined_table = match locked_sstables {
+            match locked_sstables {
                 Ok(mut sstables) => compaction(&mut sstables, &sstable_dir),
                 Err(e) => panic!("oops {}", e),
-            };
-            combined_table
+            }
         })
         .join()
         .unwrap();
@@ -91,13 +91,13 @@ impl KVStore {
     }
 
     fn flush_memtable(&mut self) {
-        let mut sstable = create_sstable((&self.sstables).len(), &self.sstable_dir);
+        let mut sstable = create_sstable(self.sstables.len(), &self.sstable_dir);
         let mut keys: Vec<Vec<u8>> = self.memtable.clone().into_keys().collect();
         keys.sort();
 
         for k in keys {
             if let Some(v) = self.memtable.get(&k) {
-                if let Err(e) = sstable.write(&k, &v) {
+                if let Err(e) = sstable.write(&k, v) {
                     error!("{}", e);
                 }
             };
@@ -111,7 +111,10 @@ impl KVStore {
     pub fn set(&mut self, k: &[u8], v: &[u8]) {
         self.mem_size += (k.len() + v.len()) as u64;
         if self.is_overflow() && self.memtable.is_empty() {
-            panic!("Store size ({} bytes) should be greater than {} bytes (size of key-value pair being inserted)!", self.max_bytes, self.mem_size);
+            panic!("Store size ({} bytes) should be greater than \
+                    {} bytes (size of key-value pair being inserted)!", 
+                    self.max_bytes,
+                    self.mem_size);
         }
         if self.is_overflow() {
             debug!(
@@ -151,10 +154,10 @@ impl KVStore {
     }
 
     pub fn delete(&mut self, k: &[u8]) {
-        if let Some(_) = self.memtable.remove(k) {
-            return ();
+        if self.memtable.remove(k).is_some() {
+            return;
         };
-        if let Some(_) = self.get_from_sstable(k) {
+        if self.get_from_sstable(k).is_some() {
             self.memtable.insert(k.to_vec(), TOMBSTONE.to_vec());
         }
     }
@@ -164,7 +167,7 @@ impl KVStore {
     }
 }
 
-fn create_sstable(n_sstables: usize, sstable_dir: &PathBuf) -> SSTable {
+fn create_sstable(n_sstables: usize, sstable_dir: &Path) -> SSTable {
     let uuid = Uuid::new_v4();
     let idx = n_sstables + 1;
     let slug = format!("{}-{}.{}", idx, uuid, RKV);
@@ -174,7 +177,7 @@ fn create_sstable(n_sstables: usize, sstable_dir: &PathBuf) -> SSTable {
     SSTable::new(filename, true, true, true).unwrap()
 }
 
-pub fn compaction(sstables: &mut Vec<SSTable>, sstable_dir: &PathBuf) -> SSTable {
+pub fn compaction(sstables: &mut Vec<SSTable>, sstable_dir: &Path) -> SSTable {
     let mut store: HashMap<Vec<u8>, Vec<u8>> = HashMap::new();
     let n_sstables = sstables.len();
     for sstable in &mut *sstables {

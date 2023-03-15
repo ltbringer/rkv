@@ -1,6 +1,6 @@
 #[cfg(test)]
-mod store_test {
-    use super::super::store::KVStore;
+mod test {
+    use crate::store::lsm_store::KVStore;
     use std::panic::{self, AssertUnwindSafe};
     use tempfile::TempDir;
 
