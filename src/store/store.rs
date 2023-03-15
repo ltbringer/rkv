@@ -10,7 +10,21 @@ use uuid::Uuid;
 use crate::sstable::constants::{RKV, TOMBSTONE};
 use crate::sstable::sstable::SSTable;
 
+/// A key value store implemented as an LSM Tree.
+///
+/// # Example
+/// ```
+/// use std::path::PathBuf;
+/// use rkv::store::store::KVStore;
+///
+/// let mut store = KVStore::new(100, PathBuf::from("/tmp/.tmp20aefd00/book_ratings/"));
+/// store.set(b"The Rust Programming language", b"5");
+/// if let Some(v) = store.get(b"The Rust Programming language") {
+///     assert_eq!(v, b"5".to_vec());
+/// }
+/// ```
 pub struct KVStore {
+    /// memtable is
     memtable: HashMap<Vec<u8>, Vec<u8>>,
     mem_size: u64,
     max_bytes: u64,
@@ -113,6 +127,16 @@ impl KVStore {
         self.memtable.insert(k.to_vec(), v.to_vec());
     }
 
+    pub fn get(&mut self, k: &[u8]) -> Option<Vec<u8>> {
+        if let Some(v) = self.memtable.get(k) {
+            if v == TOMBSTONE {
+                return None;
+            }
+            return Some(v.to_vec());
+        }
+        self.get_from_sstable(k)
+    }
+
     fn get_from_sstable(&mut self, k: &[u8]) -> Option<Vec<u8>> {
         for sstable in &mut self.sstables.iter_mut().rev() {
             let value = match sstable.scan(k) {
@@ -123,17 +147,7 @@ impl KVStore {
                 return if v == TOMBSTONE { None } else { Some(v) };
             }
         }
-        return None;
-    }
-
-    pub fn get(&mut self, k: &[u8]) -> Option<Vec<u8>> {
-        if let Some(v) = self.memtable.get(k) {
-            if v == TOMBSTONE {
-                return None;
-            }
-            return Some(v.to_vec());
-        }
-        return self.get_from_sstable(k);
+        None
     }
 
     pub fn delete(&mut self, k: &[u8]) {
