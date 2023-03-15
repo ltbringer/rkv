@@ -50,10 +50,15 @@ impl KVStore {
         self.max_bytes < self.mem_size
     }
 
+    /// Track the number of sstables.
     pub fn get_sstables_count(&self) -> usize {
         self.sstables.len()
     }
 
+    /// Find sstables after restarts.
+    /// 
+    /// As long as sstables (.rkv) files are present at the path,
+    /// this method will load them before creating an instance of the `KVStore`.
     fn discover_sstables(&mut self) -> Vec<SSTable> {
         let mut sstables: Vec<SSTable> = vec![];
         let sstable_dir = self.sstable_dir.join(RKV).join("dat");
@@ -108,6 +113,7 @@ impl KVStore {
         self.mem_size = 0;
     }
 
+    /// Set a key value pair in the store. 
     pub fn set(&mut self, k: &[u8], v: &[u8]) {
         self.mem_size += (k.len() + v.len()) as u64;
         if self.is_overflow() && self.memtable.is_empty() {
@@ -130,6 +136,7 @@ impl KVStore {
         self.memtable.insert(k.to_vec(), v.to_vec());
     }
 
+    /// Get the value for a key stored previously
     pub fn get(&mut self, k: &[u8]) -> Option<Vec<u8>> {
         if let Some(v) = self.memtable.get(k) {
             if v == TOMBSTONE {
@@ -153,6 +160,7 @@ impl KVStore {
         None
     }
 
+    /// Remove a key value pair.
     pub fn delete(&mut self, k: &[u8]) {
         if self.memtable.remove(k).is_some() {
             return;
@@ -162,6 +170,7 @@ impl KVStore {
         }
     }
 
+    /// Get the current size of memtable.
     pub fn size(&self) -> u64 {
         self.mem_size
     }
@@ -177,7 +186,7 @@ fn create_sstable(n_sstables: usize, sstable_dir: &Path) -> SSTable {
     SSTable::new(filename, true, true, true).unwrap()
 }
 
-pub fn compaction(sstables: &mut Vec<SSTable>, sstable_dir: &Path) -> SSTable {
+fn compaction(sstables: &mut Vec<SSTable>, sstable_dir: &Path) -> SSTable {
     let mut store: HashMap<Vec<u8>, Vec<u8>> = HashMap::new();
     let n_sstables = sstables.len();
     for sstable in &mut *sstables {
