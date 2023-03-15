@@ -171,3 +171,27 @@ fn create_sstable(n_sstables: usize, sstable_dir: &PathBuf) -> SSTable {
     let filename = dirname.join(slug);
     SSTable::new(filename, true, true, true).unwrap()
 }
+
+pub fn compaction(sstables: &mut Vec<SSTable>, sstable_dir: &PathBuf) -> SSTable {
+    let mut store: HashMap<Vec<u8>, Vec<u8>> = HashMap::new();
+    let n_sstables = sstables.len();
+    for sstable in &mut *sstables {
+        if let Ok(hashmap) = sstable.as_hashmap() {
+            store.extend(hashmap)
+        }
+    }
+    let mut keys: Vec<Vec<u8>> = store.clone().into_keys().collect();
+    keys.sort();
+
+    let mut sstable = create_sstable(n_sstables, sstable_dir);
+    keys.iter()
+        .filter_map(|k| store.get(k).map(|v| (k, v)))
+        .try_for_each(|(k, v)| sstable.write(k, v))
+        .unwrap_or_else(|e| error!("{}", e));
+
+    for i_sstable in sstables {
+        i_sstable.delete();
+    }
+
+    sstable
+}
