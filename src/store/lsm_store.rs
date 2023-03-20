@@ -194,7 +194,8 @@ impl KVStore {
 /// 
 /// sstables=Vec<SSTables> is ordered such that the most recent table is at the end.
 /// 1. We partition sstables so that multiple threads can search them in parallel.
-/// 2. We use a channel to collect results from each thread.
+/// 2. We use a mutex to store the result and the last index of the sstable that was searched. IF a key is found.
+/// 3. If a later partition finds the key, the earlier partitions stop searching.
 fn parallel_search(sstables: &mut Vec<SSTable>, k: Vec<u8>, n_threads: usize) -> Option<Vec<u8>> {
     let n_sstables = sstables.len();
     let chunk_size = (n_sstables + n_threads - 1) / n_threads;
