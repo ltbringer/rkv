@@ -157,7 +157,8 @@ impl KVStore {
             }
             return Some(v.to_vec());
         }
-        self.get_from_sstable(k)
+        let n_threads = std::cmp::min(self.sstables.len(), 100);
+        parallel_search(&mut self.sstables, k.to_vec(), n_threads)
     }
 
     fn get_from_sstable(&mut self, k: &[u8]) -> Option<Vec<u8>> {
@@ -187,6 +188,67 @@ impl KVStore {
     pub fn size(&self) -> u64 {
         self.mem_size
     }
+}
+
+/// Parallel search SSTables.
+/// 
+/// sstables=Vec<SSTables> is ordered such that the most recent table is at the end.
+/// 1. We partition sstables so that multiple threads can search them in parallel.
+/// 2. We use a channel to collect results from each thread.
+fn parallel_search(sstables: &mut Vec<SSTable>, k: Vec<u8>, n_threads: usize) -> Option<Vec<u8>> {
+    let n_sstables = sstables.len();
+    let chunk_size = (n_sstables + n_threads - 1) / n_threads;
+    let sstables = Arc::new(sstables.clone());
+    let key = Arc::new(k);
+    let result: Arc<Mutex<Option<Vec<u8>>>> = Arc::new(Mutex::new(None));
+    let mut handles = vec![];
+    let last_index: Arc<Mutex<Option<usize>>> = Arc::new(Mutex::new(None));    
+
+    for i in 0..n_threads {
+        let sstables = sstables.clone();
+        let key = key.clone();
+        let result = result.clone();
+        let last_index = last_index.clone();
+
+        let start = i * chunk_size;
+        let end = std::cmp::min(start + chunk_size, n_sstables);
+
+        let handle = thread::spawn(move || {
+            let sstable_chunk = &sstables[start..end];
+            for (j, sstable) in sstable_chunk.iter().enumerate() {
+
+                let mut current_last_index = last_index.lock().unwrap();
+                if let Some(last_index) = *current_last_index {
+                    if last_index >= start + j {
+                        return;
+                    }
+                }
+
+                let value = match sstable.scan(&key) {
+                    Ok(v) => v,
+                    _ => None,
+                };
+
+                if let Some(v) = value {
+                    if v == TOMBSTONE {
+                        return;
+                    }
+                    let mut result = result.lock().unwrap();
+                    *result = Some(v);
+                    *current_last_index = Some(start + j);
+                    return;
+                }
+            }
+        });
+        handles.push(handle);
+    }
+
+    for handle in handles {
+        handle.join().expect("Failed to join thread!");
+    }
+
+    let result = result.lock().unwrap();
+    result.clone()
 }
 
 fn create_sstable(n_sstables: usize, sstable_dir: &Path) -> SSTable {
