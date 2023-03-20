@@ -157,7 +157,7 @@ impl KVStore {
             }
             return Some(v.to_vec());
         }
-        self.get_from_sstable(k)
+        let n_threads = std::cmp::min(self.sstables.len(), 100);
     }
 
     fn get_from_sstable(&mut self, k: &[u8]) -> Option<Vec<u8>> {
