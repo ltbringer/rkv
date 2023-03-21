@@ -1,7 +1,10 @@
 #[cfg(test)]
 mod test {
     use crate::sstable::sst::SSTable;
-    use std::panic::{self, AssertUnwindSafe};
+    use std::{
+        collections::HashMap,
+        panic::{self, AssertUnwindSafe},
+    };
     use tempfile::TempDir;
 
     #[test]
@@ -18,11 +21,13 @@ mod test {
             };
             let key = b"test_key";
             let value = b"test_value";
-            match sstable.write(key, value) {
+            let mut store = HashMap::new();
+            store.insert(key.to_vec(), value.to_vec());
+            match sstable.write(&store) {
                 Ok(_) => (),
                 Err(_) => panic!("Failed write to sstable."),
             };
-            let value_read = match sstable.scan(key) {
+            let value_read = match sstable.search(key) {
                 Ok(Some(v)) => v,
                 Err(e) => panic!("{}", e),
                 _ => panic!("Failed to read value."),

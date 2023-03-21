@@ -1,5 +1,6 @@
 use log::{debug, error};
 use std::fs::create_dir_all;
+use std::io::Result;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -56,7 +57,7 @@ impl KVStore {
     }
 
     /// Find sstables after restarts.
-    /// 
+    ///
     /// As long as sstables (.rkv) files are present at the path,
     /// this method will load them before creating an instance of the `KVStore`.
     fn discover_sstables(&mut self) -> Vec<SSTable> {
@@ -81,16 +82,16 @@ impl KVStore {
     }
 
     /// Reduce number of SSTables.
-    /// 
+    ///
     /// To read K-V pairs from sstabls, we need to:
     /// 1. For each file:
     /// 1. Load the file contents into a buffer.
     /// 1. Search the key.
-    /// 
-    /// This gets very slow as the number of sstables increase. 
+    ///
+    /// This gets very slow as the number of sstables increase.
     /// 1. Keys that are updated frequently.
     /// 1. Keys that have been deleted.
-    /// 
+    ///
     /// These will occupy extra space in multiple sstables. We can periodically clean up and
     /// combine sstables into single table. Since this process is also slow, we run it on a separate thread.
     pub fn compaction(&mut self) {
@@ -109,31 +110,24 @@ impl KVStore {
     }
 
     /// Drain key-value pairs into an sstable.
-    fn flush_memtable(&mut self) {
+    fn flush_memtable(&mut self) -> Result<()> {
         let mut sstable = create_sstable(self.sstables.len(), &self.sstable_dir);
-        let mut keys: Vec<Vec<u8>> = self.memtable.clone().into_keys().collect();
-        keys.sort();
-
-        for k in keys {
-            if let Some(v) = self.memtable.get(&k) {
-                if let Err(e) = sstable.write(&k, v) {
-                    error!("{}", e);
-                }
-            };
-        }
+        sstable.write(&self.memtable)?;
         self.sstables.push(sstable);
         self.memtable = HashMap::new();
         self.mem_size = 0;
+        Ok(())
     }
 
-    /// Set a key value pair in the store. 
+    /// Set a key value pair in the store.
     pub fn set(&mut self, k: &[u8], v: &[u8]) {
         self.mem_size += (k.len() + v.len()) as u64;
         if self.is_overflow() && self.memtable.is_empty() {
-            panic!("Store size ({} bytes) should be greater than \
-                    {} bytes (size of key-value pair being inserted)!", 
-                    self.max_bytes,
-                    self.mem_size);
+            panic!(
+                "Store size ({} bytes) should be greater than \
+                    {} bytes (size of key-value pair being inserted)!",
+                self.max_bytes, self.mem_size
+            );
         }
         if self.is_overflow() {
             debug!(
@@ -144,7 +138,9 @@ impl KVStore {
                 )
             );
 
-            self.flush_memtable();
+            if let Err(e) = self.flush_memtable() {
+                panic!("Failed to flush memtable because {}", e);
+            }
         }
         self.memtable.insert(k.to_vec(), v.to_vec());
     }
@@ -157,21 +153,8 @@ impl KVStore {
             }
             return Some(v.to_vec());
         }
-        let n_threads = std::cmp::min(self.sstables.len(), 100);
-        parallel_search(&mut self.sstables, k.to_vec(), n_threads)
-    }
 
-    fn get_from_sstable(&mut self, k: &[u8]) -> Option<Vec<u8>> {
-        for sstable in &mut self.sstables.iter_mut().rev() {
-            let value = match sstable.scan(k) {
-                Ok(v) => v,
-                _ => None,
-            };
-            if let Some(v) = value {
-                return if v == TOMBSTONE { None } else { Some(v) };
-            }
-        }
-        None
+        parallel_search(&mut self.sstables, k.to_vec())
     }
 
     /// Remove a key value pair.
@@ -179,7 +162,7 @@ impl KVStore {
         if self.memtable.remove(k).is_some() {
             return;
         };
-        if self.get_from_sstable(k).is_some() {
+        if parallel_search(&mut self.sstables, k.to_vec()).is_some() {
             self.memtable.insert(k.to_vec(), TOMBSTONE.to_vec());
         }
     }
@@ -191,19 +174,19 @@ impl KVStore {
 }
 
 /// Parallel search SSTables.
-/// 
+///
 /// sstables=Vec<SSTables> is ordered such that the most recent table is at the end.
 /// 1. We partition sstables so that multiple threads can search them in parallel.
-/// 2. We use a mutex to store the result and the last index of the sstable that was searched. IF a key is found.
-/// 3. If a later partition finds the key, the earlier partitions stop searching.
-fn parallel_search(sstables: &mut Vec<SSTable>, k: Vec<u8>, n_threads: usize) -> Option<Vec<u8>> {
+/// 2. We use a channel to collect results from each thread.
+fn parallel_search(sstables: &mut Vec<SSTable>, k: Vec<u8>) -> Option<Vec<u8>> {
     let n_sstables = sstables.len();
+    let n_threads = std::cmp::min(sstables.len(), 10);
     let chunk_size = (n_sstables + n_threads - 1) / n_threads;
     let sstables = Arc::new(sstables.clone());
     let key = Arc::new(k);
     let result: Arc<Mutex<Option<Vec<u8>>>> = Arc::new(Mutex::new(None));
     let mut handles = vec![];
-    let last_index: Arc<Mutex<Option<usize>>> = Arc::new(Mutex::new(None));    
+    let last_index: Arc<Mutex<Option<usize>>> = Arc::new(Mutex::new(None));
 
     for i in 0..n_threads {
         let sstables = sstables.clone();
@@ -217,7 +200,6 @@ fn parallel_search(sstables: &mut Vec<SSTable>, k: Vec<u8>, n_threads: usize) ->
         let handle = thread::spawn(move || {
             let sstable_chunk = &sstables[start..end];
             for (j, sstable) in sstable_chunk.iter().enumerate() {
-
                 let mut current_last_index = last_index.lock().unwrap();
                 if let Some(last_index) = *current_last_index {
                     if last_index >= start + j {
@@ -225,7 +207,7 @@ fn parallel_search(sstables: &mut Vec<SSTable>, k: Vec<u8>, n_threads: usize) ->
                     }
                 }
 
-                let value = match sstable.scan(&key) {
+                let value = match sstable.search(&key) {
                     Ok(v) => v,
                     _ => None,
                 };
@@ -274,10 +256,9 @@ fn compaction(sstables: &mut Vec<SSTable>, sstable_dir: &Path) -> SSTable {
     keys.sort();
 
     let mut sstable = create_sstable(n_sstables, sstable_dir);
-    keys.iter()
-        .filter_map(|k| store.get(k).map(|v| (k, v)))
-        .try_for_each(|(k, v)| sstable.write(k, v))
-        .unwrap_or_else(|e| error!("{}", e));
+    if let Err(e) = sstable.write(&store) {
+        panic!("Failed to write to sstable because {}", e);
+    }
 
     for i_sstable in sstables {
         i_sstable.delete();
