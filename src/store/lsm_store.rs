@@ -203,7 +203,7 @@ fn parallel_search(sstables: &mut Vec<SSTable>, k: Vec<u8>) -> Option<Vec<u8>> {
                     }
                 }
 
-                let value = match sstable.scan(&key) {
+                let value = match sstable.search(&key) {
                     Ok(v) => v,
                     _ => None,
                 };
