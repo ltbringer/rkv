@@ -109,21 +109,13 @@ impl KVStore {
     }
 
     /// Drain key-value pairs into an sstable.
-    fn flush_memtable(&mut self) {
+    fn flush_memtable(&mut self) -> Result<()>{
         let mut sstable = create_sstable(self.sstables.len(), &self.sstable_dir);
-        let mut keys: Vec<Vec<u8>> = self.memtable.clone().into_keys().collect();
-        keys.sort();
-
-        for k in keys {
-            if let Some(v) = self.memtable.get(&k) {
-                if let Err(e) = sstable.write(&k, v) {
-                    error!("{}", e);
-                }
-            };
-        }
+        sstable.write(&self.memtable)?;
         self.sstables.push(sstable);
         self.memtable = HashMap::new();
         self.mem_size = 0;
+        Ok(())
     }
 
     /// Set a key value pair in the store. 
@@ -260,10 +252,9 @@ fn compaction(sstables: &mut Vec<SSTable>, sstable_dir: &Path) -> SSTable {
     keys.sort();
 
     let mut sstable = create_sstable(n_sstables, sstable_dir);
-    keys.iter()
-        .filter_map(|k| store.get(k).map(|v| (k, v)))
-        .try_for_each(|(k, v)| sstable.write(k, v))
-        .unwrap_or_else(|e| error!("{}", e));
+    if let Err(e) = sstable.write(&store) {
+        panic!("Failed to write to sstable because {}", e);
+    }
 
     for i_sstable in sstables {
         i_sstable.delete();
