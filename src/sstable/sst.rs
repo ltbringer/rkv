@@ -55,23 +55,39 @@ impl SSTable {
     /**
      * Write a key-value pair to an SSTable.
      *
-     * - Both key length and value length are exactly 8 bytes long because
-     *   we are using u64 for both.
+     * - Both key length and value length are 8 bytes long because
+     *   we are using u64 for keys and values.
      * - Writing the key (and value) length helps us at the time of reading.
      *   or else we would resort to delimiters and handle cases when the
      *   delimiter character is also an input.
      */
-    pub fn write(&mut self, key: &[u8], value: &[u8]) -> io::Result<()> {
-        let mut file = self.open()?;
-        file.seek(SeekFrom::End(0))?;
+    pub fn write(&mut self, hashmap: &HashMap<Vec<u8>, Vec<u8>>) -> Result<()> {
+        let index_filename = self.filename.with_extension("index");
+        let mut data_file = self.open(&self.filename)?;
+        let mut index_file = self.open(&index_filename)?;
+        data_file.seek(SeekFrom::End(0))?;
+        index_file.seek(SeekFrom::End(0))?;
+
+        let mut sorted_hashmap: Vec<(&Vec<u8>, &Vec<u8>)> = hashmap.iter().collect();
+        sorted_hashmap.sort_by(|a, b| {
+            let a_key = a.0;
+            let other_key = b.0;
+            a_key.cmp(other_key)
+        });
+
+        for (key, value) in sorted_hashmap {
         let key_len = key.len() as u64;
         let value_len = value.len() as u64;
         let mut buf = vec![];
+            let seek_pos = data_file.seek(SeekFrom::Current(0))?;
+            index_file.write_u64::<LittleEndian>(seek_pos)?;
         buf.write_u64::<LittleEndian>(key_len)?;
         buf.write_all(key)?;
         buf.write_u64::<LittleEndian>(value_len)?;
         buf.write_all(value)?;
-        file.write_all(&buf)?;
+            data_file.write_all(&buf)?;
+        }
+
         Ok(())
     }
 
