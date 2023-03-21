@@ -1,5 +1,6 @@
 use log::{debug, error};
 use std::fs::create_dir_all;
+use std::io::Result;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -56,7 +57,7 @@ impl KVStore {
     }
 
     /// Find sstables after restarts.
-    /// 
+    ///
     /// As long as sstables (.rkv) files are present at the path,
     /// this method will load them before creating an instance of the `KVStore`.
     fn discover_sstables(&mut self) -> Vec<SSTable> {
@@ -81,16 +82,16 @@ impl KVStore {
     }
 
     /// Reduce number of SSTables.
-    /// 
+    ///
     /// To read K-V pairs from sstabls, we need to:
     /// 1. For each file:
     /// 1. Load the file contents into a buffer.
     /// 1. Search the key.
-    /// 
-    /// This gets very slow as the number of sstables increase. 
+    ///
+    /// This gets very slow as the number of sstables increase.
     /// 1. Keys that are updated frequently.
     /// 1. Keys that have been deleted.
-    /// 
+    ///
     /// These will occupy extra space in multiple sstables. We can periodically clean up and
     /// combine sstables into single table. Since this process is also slow, we run it on a separate thread.
     pub fn compaction(&mut self) {
@@ -109,7 +110,7 @@ impl KVStore {
     }
 
     /// Drain key-value pairs into an sstable.
-    fn flush_memtable(&mut self) -> Result<()>{
+    fn flush_memtable(&mut self) -> Result<()> {
         let mut sstable = create_sstable(self.sstables.len(), &self.sstable_dir);
         sstable.write(&self.memtable)?;
         self.sstables.push(sstable);
@@ -118,14 +119,15 @@ impl KVStore {
         Ok(())
     }
 
-    /// Set a key value pair in the store. 
+    /// Set a key value pair in the store.
     pub fn set(&mut self, k: &[u8], v: &[u8]) {
         self.mem_size += (k.len() + v.len()) as u64;
         if self.is_overflow() && self.memtable.is_empty() {
-            panic!("Store size ({} bytes) should be greater than \
-                    {} bytes (size of key-value pair being inserted)!", 
-                    self.max_bytes,
-                    self.mem_size);
+            panic!(
+                "Store size ({} bytes) should be greater than \
+                    {} bytes (size of key-value pair being inserted)!",
+                self.max_bytes, self.mem_size
+            );
         }
         if self.is_overflow() {
             debug!(
@@ -171,7 +173,7 @@ impl KVStore {
 }
 
 /// Parallel search SSTables.
-/// 
+///
 /// sstables=Vec<SSTables> is ordered such that the most recent table is at the end.
 /// 1. We partition sstables so that multiple threads can search them in parallel.
 /// 2. We use a channel to collect results from each thread.
@@ -183,7 +185,7 @@ fn parallel_search(sstables: &mut Vec<SSTable>, k: Vec<u8>) -> Option<Vec<u8>> {
     let key = Arc::new(k);
     let result: Arc<Mutex<Option<Vec<u8>>>> = Arc::new(Mutex::new(None));
     let mut handles = vec![];
-    let last_index: Arc<Mutex<Option<usize>>> = Arc::new(Mutex::new(None));    
+    let last_index: Arc<Mutex<Option<usize>>> = Arc::new(Mutex::new(None));
 
     for i in 0..n_threads {
         let sstables = sstables.clone();
@@ -197,7 +199,6 @@ fn parallel_search(sstables: &mut Vec<SSTable>, k: Vec<u8>) -> Option<Vec<u8>> {
         let handle = thread::spawn(move || {
             let sstable_chunk = &sstables[start..end];
             for (j, sstable) in sstable_chunk.iter().enumerate() {
-
                 let mut current_last_index = last_index.lock().unwrap();
                 if let Some(last_index) = *current_last_index {
                     if last_index >= start + j {

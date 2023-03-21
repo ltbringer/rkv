@@ -1,9 +1,10 @@
-use crate::sstable::constants::{TOMBSTONE, WORD};
-use byteorder::{LittleEndian, WriteBytesExt};
+use crate::sstable::constants::{KEY_WORD, TOMBSTONE, VALUE_WORD, WORD};
+use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use log::error;
+use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fs::{remove_file, File, OpenOptions};
-use std::io::{self, Read, Seek, SeekFrom, Write};
+use std::io::{Read, Result, Seek, SeekFrom, Write};
 use std::path::PathBuf;
 
 #[derive(Clone)]
@@ -27,7 +28,7 @@ impl SSTable {
      * `Key length` is trying to specify. The same explains the following
      * `Val length`.
      */
-    pub fn new(filename: PathBuf, read: bool, write: bool, create: bool) -> io::Result<SSTable> {
+    pub fn new(filename: PathBuf, read: bool, write: bool, create: bool) -> Result<SSTable> {
         Ok(SSTable {
             filename,
             read,
@@ -44,12 +45,12 @@ impl SSTable {
         }
     }
 
-    fn open(&self) -> io::Result<File> {
+    fn open(&self, filename: &PathBuf) -> Result<File> {
         OpenOptions::new()
             .read(self.read)
             .write(self.write)
             .create(self.create)
-            .open(&self.filename)
+            .open(filename)
     }
 
     /**
@@ -76,15 +77,15 @@ impl SSTable {
         });
 
         for (key, value) in sorted_hashmap {
-        let key_len = key.len() as u64;
-        let value_len = value.len() as u64;
-        let mut buf = vec![];
+            let key_len = key.len() as u64;
+            let value_len = value.len() as u64;
+            let mut buf = vec![];
             let seek_pos = data_file.seek(SeekFrom::Current(0))?;
             index_file.write_u64::<LittleEndian>(seek_pos)?;
-        buf.write_u64::<LittleEndian>(key_len)?;
-        buf.write_all(key)?;
-        buf.write_u64::<LittleEndian>(value_len)?;
-        buf.write_all(value)?;
+            buf.write_u64::<LittleEndian>(key_len)?;
+            buf.write_all(key)?;
+            buf.write_u64::<LittleEndian>(value_len)?;
+            buf.write_all(value)?;
             data_file.write_all(&buf)?;
         }
 
