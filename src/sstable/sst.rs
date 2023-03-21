@@ -123,35 +123,41 @@ impl SSTable {
         Ok(hashmap)
     }
 
-    /**
-     * Read the value of a key from an SSTable.
-     * If this file was opened for writing,
-     * that would change the seek position to EOF,
-     * Hence we explicitly change the position.
-     */
-    pub fn scan(&self, key: &[u8]) -> io::Result<Option<Vec<u8>>> {
-        let mut file = self.open()?;
-        let mut buf = Vec::new();
-        file.read_to_end(&mut buf)?;
-        let mut i: usize = 0;
+    pub fn search(&self, key: &[u8]) -> Result<Option<Vec<u8>>> {
+        let mut data_file = self.open(&self.filename)?;
+        let mut index_file = self.open(&self.filename.with_extension("index"))?;
+        let mut start = index_file.seek(SeekFrom::Start(0))?;
+        let mut end = index_file.seek(SeekFrom::End(0))? / WORD as u64;
 
-        while i < buf.len() {
-            let key_len = self.get_kv_len_u64(&buf, i);
-            i += WORD;
+        while start < end {
+            let index_mid = start + (end - start) / 2;
+            index_file.seek(SeekFrom::Start(index_mid * WORD as u64))?;
+            let data_mid = index_file.read_u64::<LittleEndian>()?;
+            data_file.seek(SeekFrom::Start(data_mid))?;
+            let key_len = data_file.read_u64::<LittleEndian>()?;
+            let mut key_buf = vec![0; key_len as usize];
+            data_file.read_exact(key_buf.as_mut_slice())?;
+            let current_key = key_buf.as_slice();
 
-            let key_ = &buf[i..i + key_len];
-            i += key_len;
+            match key.cmp(current_key) {
+                Ordering::Less => {
+                    end = index_mid;
+                }
+                Ordering::Equal => {
+                    let value_len = data_file.read_u64::<LittleEndian>()?;
+                    let mut value_buf = vec![0; value_len as usize];
+                    data_file.read_exact(value_buf.as_mut_slice())?;
+                    let value = value_buf.as_slice();
 
-            let value_len = self.get_kv_len_u64(&buf, i);
-            i += WORD;
-
-            let value_ = &buf[i..i + value_len];
-            i += value_len;
-
-            let is_tombstone = value_ == TOMBSTONE;
-
-            if key_ == key && !is_tombstone {
-                return Ok(Some(value_.to_vec()));
+                    if value != TOMBSTONE {
+                        return Ok(Some(value.to_vec()));
+                    } else {
+                        return Ok(None);
+                    }
+                }
+                Ordering::Greater => {
+                    start = index_mid + 1;
+                }
             }
         }
 
