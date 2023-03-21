@@ -1,7 +1,10 @@
 #[cfg(test)]
 mod test {
     use crate::sstable::sst::SSTable;
-    use std::{panic::{self, AssertUnwindSafe}, collections::HashMap};
+    use std::{
+        collections::HashMap,
+        panic::{self, AssertUnwindSafe},
+    };
     use tempfile::TempDir;
 
     #[test]
