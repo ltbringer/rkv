@@ -157,21 +157,7 @@ impl KVStore {
             }
             return Some(v.to_vec());
         }
-        let n_threads = std::cmp::min(self.sstables.len(), 100);
-        parallel_search(&mut self.sstables, k.to_vec(), n_threads)
-    }
-
-    fn get_from_sstable(&mut self, k: &[u8]) -> Option<Vec<u8>> {
-        for sstable in &mut self.sstables.iter_mut().rev() {
-            let value = match sstable.scan(k) {
-                Ok(v) => v,
-                _ => None,
-            };
-            if let Some(v) = value {
-                return if v == TOMBSTONE { None } else { Some(v) };
-            }
-        }
-        None
+        parallel_search(&mut self.sstables, k.to_vec())
     }
 
     /// Remove a key value pair.
@@ -179,7 +165,7 @@ impl KVStore {
         if self.memtable.remove(k).is_some() {
             return;
         };
-        if self.get_from_sstable(k).is_some() {
+        if parallel_search(&mut self.sstables, k.to_vec()).is_some() {
             self.memtable.insert(k.to_vec(), TOMBSTONE.to_vec());
         }
     }
@@ -195,8 +181,9 @@ impl KVStore {
 /// sstables=Vec<SSTables> is ordered such that the most recent table is at the end.
 /// 1. We partition sstables so that multiple threads can search them in parallel.
 /// 2. We use a channel to collect results from each thread.
-fn parallel_search(sstables: &mut Vec<SSTable>, k: Vec<u8>, n_threads: usize) -> Option<Vec<u8>> {
+fn parallel_search(sstables: &mut Vec<SSTable>, k: Vec<u8>) -> Option<Vec<u8>> {
     let n_sstables = sstables.len();
+    let n_threads = std::cmp::min(sstables.len(), 10);
     let chunk_size = (n_sstables + n_threads - 1) / n_threads;
     let sstables = Arc::new(sstables.clone());
     let key = Arc::new(k);
