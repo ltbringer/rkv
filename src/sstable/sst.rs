@@ -91,12 +91,16 @@ impl SSTable {
         Ok(())
     }
 
-    fn get_kv_len_u64(&self, buf: &[u8], i: usize) -> usize {
-        u64::from_le_bytes(buf[i..i + 8].try_into().unwrap()) as usize
+    fn get_key_u64(&self, buf: &[u8], i: usize) -> usize {
+        u64::from_le_bytes(buf[i..i + KEY_WORD].try_into().unwrap()) as usize
     }
 
-    pub fn as_hashmap(&mut self) -> io::Result<HashMap<Vec<u8>, Vec<u8>>> {
-        let mut file = self.open()?;
+    fn get_value_u64(&self, buf: &[u8], i: usize) -> usize {
+        u64::from_le_bytes(buf[i..i + VALUE_WORD].try_into().unwrap()) as usize
+    }
+
+    pub fn as_hashmap(&mut self) -> Result<HashMap<Vec<u8>, Vec<u8>>> {
+        let mut file = self.open(&self.filename)?;
         file.seek(SeekFrom::Start(0))?;
         let mut buf = Vec::new();
         file.read_to_end(&mut buf)?;
@@ -104,14 +108,14 @@ impl SSTable {
         let mut hashmap: HashMap<Vec<u8>, Vec<u8>> = HashMap::new();
 
         while i < buf.len() {
-            let key_len = self.get_kv_len_u64(&buf, i);
-            i += WORD;
+            let key_len = self.get_key_u64(&buf, i);
+            i += KEY_WORD;
 
             let key_ = &buf[i..i + key_len];
             i += key_len;
 
-            let value_len = self.get_kv_len_u64(&buf, i);
-            i += WORD;
+            let value_len = self.get_value_u64(&buf, i);
+            i += VALUE_WORD;
 
             let value_ = &buf[i..i + value_len];
             i += value_len;
