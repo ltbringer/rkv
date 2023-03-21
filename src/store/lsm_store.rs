@@ -136,7 +136,9 @@ impl KVStore {
                 )
             );
 
-            self.flush_memtable();
+            if let Err(e) = self.flush_memtable() {
+                panic!("Failed to flush memtable because {}", e);
+            }
         }
         self.memtable.insert(k.to_vec(), v.to_vec());
     }
