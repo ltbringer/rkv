@@ -100,6 +100,7 @@ mod test {
             (b"key2", b"value2"),
             (b"key3", b"value3"),
             (b"key4", b"value4"),
+            (b"key1", b"value7"),
             (b"key5", b"value5"),
             (b"key6", b"value6"),
             (b"key7", b"value7"),
@@ -118,15 +119,15 @@ mod test {
             store.compaction();
 
             match store.get(b"key1") {
-                Some(v) => assert_eq!(v, b"value1", "Expected value to be b'value1'"),
+                Some(v) => assert_eq!(v, b"value7", "Expected value to be b'value7'"),
                 None => panic!("Expected a value to be found'"),
             }
             match store.get(b"key2") {
-                Some(v) => assert_eq!(v, b"value2", "Expected value to be b'value1'"),
+                Some(v) => assert_eq!(v, b"value2", "Expected value to be b'value2'"),
                 None => panic!("Expected a value to be found'"),
             }
             match store.get(b"key3") {
-                Some(v) => assert_eq!(v, b"value3", "Expected value to be b'value1'"),
+                Some(v) => assert_eq!(v, b"value3", "Expected value to be b'value3'"),
                 None => panic!("Expected a value to be found'"),
             }
 
