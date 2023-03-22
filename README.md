@@ -32,3 +32,5 @@ To follow from scratch, check the releases and tags section. This will help you 
 - [ ] Maintaining High Availability.
 - [ ] Resolving partition failures.
 - [ ] Write a simple client.
+
+Head over to [releases](https://github.com/ltbringer/rkv/releases).
