@@ -9,11 +9,25 @@
 
 ## Introduction
 
-I was curious how database management systems are made. So I decided to make my own. This is a simple key-value store that uses an LSM tree as the underlying data structure. I have the following goals with this project:
+I was curious how database management systems are made. So I decided to make my own. This is a simple key-value store that uses an LSM tree as the underlying data structure.
+
+## Lessons
+
+To follow from scratch, check the releases and tags section. This will help you observe the progress on this project from the very first commit. I have also tried to name the tags to provide an objective and the release notes give a short summary to set expectations for the topic.
+
+### Lesson Objectives 
 
 - [x] Build a simple key-value store.
-- [ ] Benchmarking the performance.
+- [ ] Benchmark performance.
 - [ ] Write highly performant search.
+    - [x] Parallel Search
+    - [x] Binary Search over SSTables
+    - [ ] Compression
+- [ ] Security.
+    - [ ] File level permissions.
+    - [ ] Checksum verification.
+    - [ ] RBAC over APIs
+    - [ ] Encryption
 - [ ] Communication between distributed nodes.
 - [ ] Maintaining High Availability.
 - [ ] Resolving partition failures.
