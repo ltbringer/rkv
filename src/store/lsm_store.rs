@@ -114,6 +114,9 @@ impl KVStore {
         let mut sstable = create_sstable(self.sstables.len(), &self.sstable_dir);
         sstable.write(&self.memtable)?;
         self.sstables.push(sstable);
+        if self.sstables.len() > 2 {
+            self.compaction();
+        }
         self.memtable = HashMap::new();
         self.mem_size = 0;
         Ok(())
