@@ -1,2 +1,2 @@
 ignore:
-  - "*_test.rs"       # wildcards accepted
+  - "**/*_test.rs"       # wildcards accepted
