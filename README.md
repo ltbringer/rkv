@@ -18,14 +18,14 @@ To follow from scratch, check the releases and tags section. This will help you 
 - [x] Build a simple key-value store.
 - [ ] Benchmark performance.
 - [ ] Write highly performant search.
-    - [x] Parallel Search
-    - [x] Binary Search over SSTables
-    - [ ] Compression
+  - [x] Parallel Search
+  - [x] Binary Search over SSTables
+  - [ ] Compression
 - [ ] Security.
-    - [ ] File level permissions.
-    - [ ] Checksum verification.
-    - [ ] RBAC over APIs
-    - [ ] Encryption
+  - [ ] File level permissions.
+  - [ ] Checksum verification.
+  - [ ] RBAC over APIs
+  - [ ] Encryption
 - [ ] Communication between distributed nodes.
 - [ ] Maintaining High Availability.
 - [ ] Resolving partition failures.
