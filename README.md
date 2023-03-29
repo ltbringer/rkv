@@ -33,6 +33,6 @@ To follow from scratch, check the releases and tags section. This will help you 
 
 ## Benchmarks
 
-1. [local-machine](./store.get-for-1000000-keys-in-10-sstable(s)/report/)
+1. [local-machine](https://htmlpreview.github.io/?https://github.com/ltbringer/rkv/blob/main/benchmarks/report/index.html)
 
 Head over to [releases](https://github.com/ltbringer/rkv/releases).
