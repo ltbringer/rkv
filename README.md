@@ -31,4 +31,8 @@ To follow from scratch, check the releases and tags section. This will help you 
 - [ ] Resolving partition failures.
 - [ ] Write a simple client.
 
+## Benchmarks
+
+1. [local-machine](./store.get-for-1000000-keys-in-10-sstable(s)/)
+
 Head over to [releases](https://github.com/ltbringer/rkv/releases).
