@@ -1,6 +1,10 @@
 FROM rust:alpine3.17
 WORKDIR /usr/src/rkv
 ARG N_KEYS
+ARG S3_PATH
+ARG DAT_DIR
 COPY . .
 ENV N_KEYS=${N_KEYS}
+ENV S3_PATH=${S3_PATH}
+ENV DAT_DIR=${DAT_DIR}
 CMD ["cargo bench"]
