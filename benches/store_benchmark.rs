@@ -1,6 +1,7 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use rkv::store::lsm_store::KVStore;
 use tempfile::TempDir;
+use std::env;
 
 fn as_bytes(x: Vec<u64>) -> Vec<Vec<u8>> {
     x.iter()
@@ -13,7 +14,11 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         Ok(dir) => dir,
         Err(_) => panic!("Failed creating tempdir."),
     };
-    let n_keys = 1_000_000;
+    let default_n_keys = 1_000_000;
+    let n_keys = match env::var("N_KEYS") {
+        Ok(env_n_keys) => env_n_keys.parse().unwrap_or(default_n_keys),
+        Err(_) => default_n_keys,
+    };
     let size = 16;
     let key_per_table = 100_000 * size;
     let mut store = KVStore::new(key_per_table, temp_dir.into_path());
