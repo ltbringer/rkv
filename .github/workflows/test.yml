@@ -81,7 +81,7 @@ jobs:
   image:
     name: Build and upload Docker image
     runs-on: ubuntu-latest
-    needs: [check, test, lint]
+    needs: [check, test, lints]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
