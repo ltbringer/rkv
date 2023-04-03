@@ -80,7 +80,7 @@ impl SSTable {
             let key_len = key.len() as u64;
             let value_len = value.len() as u64;
             let mut buf = vec![];
-            let seek_pos = data_file.seek(SeekFrom::Current(0))?;
+            let seek_pos = data_file.stream_position()?;
             index_file.write_u64::<LittleEndian>(seek_pos)?;
             buf.write_u64::<LittleEndian>(key_len)?;
             buf.write_all(key)?;
