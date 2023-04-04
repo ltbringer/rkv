@@ -1,5 +1,5 @@
 #!/bin/sh
 S3_URI=$1
-cargo bench
-mv ../target/criterion /tmp/criterion
-aws s3 cp /tmp/criterion $S3_URI --recursive
+mkdir -p /tmp/bench-reports
+cargo bench --target-dir /tmp/bench-reports
+aws s3 cp /tmp/bench-reports $S3_URI --recursive
