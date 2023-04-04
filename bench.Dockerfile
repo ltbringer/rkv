@@ -7,4 +7,4 @@ COPY . .
 ENV N_KEYS=${N_KEYS}
 ENV S3_URI=${S3_URI}
 ENV DAT_DIR=${DAT_DIR}
-CMD ["bash", "-c", "./scripts/cloud_bench.sh"]
+CMD ["ash", "-c", "./scripts/cloud_bench.sh"]
