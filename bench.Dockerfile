@@ -16,4 +16,4 @@ ENV S3_URI=${S3_URI}
 
 COPY . .
 
-CMD ["ash", "-c", "./scripts/cloud_bench.sh"]
+CMD ["ash", "-c", "./scripts/cloud_bench.sh", $S3_URI]
