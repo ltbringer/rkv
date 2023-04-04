@@ -1,4 +1,5 @@
 FROM rust:alpine3.17
+RUN apk add --no-cache musl-dev
 WORKDIR /usr/src/rkv
 ARG N_KEYS
 ARG DAT_DIR
