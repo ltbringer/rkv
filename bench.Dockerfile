@@ -1,7 +1,10 @@
 FROM rust:alpine3.17
 WORKDIR /usr/src/rkv
 
-RUN apk add --no-cache musl-dev aws-cli
+RUN apk add --no-cache \
+    musl-dev \
+    aws-cli \
+    gnuplot
 
 ARG N_KEYS
 ARG DAT_DIR
