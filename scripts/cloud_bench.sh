@@ -1,3 +1,4 @@
 #!/bin/ash
+S3_URI=$1
 cargo bench
-mv ../target/criterion /tmp/reports
+aws s3 cp ./target/criterion $S3_URI --recursive
