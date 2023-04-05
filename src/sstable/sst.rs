@@ -77,12 +77,12 @@ impl SSTable {
         });
 
         for (key, value) in sorted_hashmap {
-            let key_len = key.len() as u64;
+            let key_len = key.len() as u16;
             let value_len = value.len() as u64;
             let mut buf = vec![];
             let seek_pos = data_file.stream_position()?;
             index_file.write_u64::<LittleEndian>(seek_pos)?;
-            buf.write_u64::<LittleEndian>(key_len)?;
+            buf.write_u16::<LittleEndian>(key_len)?;
             buf.write_all(key)?;
             buf.write_u64::<LittleEndian>(value_len)?;
             buf.write_all(value)?;
@@ -93,7 +93,7 @@ impl SSTable {
     }
 
     fn get_key(&self, buf: &[u8], i: usize) -> usize {
-        u64::from_le_bytes(buf[i..i + KEY_WORD].try_into().unwrap()) as usize
+        u16::from_le_bytes(buf[i..i + KEY_WORD].try_into().unwrap()) as usize
     }
 
     fn get_value(&self, buf: &[u8], i: usize) -> usize {
@@ -139,7 +139,7 @@ impl SSTable {
             index_file.seek(SeekFrom::Start(index_mid * WORD as u64))?;
             let data_mid = index_file.read_u64::<LittleEndian>()?;
             data_file.seek(SeekFrom::Start(data_mid))?;
-            let key_len = data_file.read_u64::<LittleEndian>()?;
+            let key_len = data_file.read_u16::<LittleEndian>()?;
             let mut key_buf = vec![0; key_len as usize];
             data_file.read_exact(key_buf.as_mut_slice())?;
             let current_key = key_buf.as_slice();
