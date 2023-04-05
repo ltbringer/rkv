@@ -92,11 +92,11 @@ impl SSTable {
         Ok(())
     }
 
-    fn get_key_u64(&self, buf: &[u8], i: usize) -> usize {
-        u64::from_le_bytes(buf[i..i + KEY_WORD].try_into().unwrap()) as usize
+    fn get_key(&self, buf: &[u8], i: usize) -> usize {
+        u16::from_le_bytes(buf[i..i + KEY_WORD].try_into().unwrap()) as usize
     }
 
-    fn get_value_u64(&self, buf: &[u8], i: usize) -> usize {
+    fn get_value(&self, buf: &[u8], i: usize) -> usize {
         u64::from_le_bytes(buf[i..i + VALUE_WORD].try_into().unwrap()) as usize
     }
 
@@ -109,13 +109,13 @@ impl SSTable {
         let mut hashmap: HashMap<Vec<u8>, Vec<u8>> = HashMap::new();
 
         while i < buf.len() {
-            let key_len = self.get_key_u64(&buf, i);
+            let key_len = self.get_key(&buf, i);
             i += KEY_WORD;
 
             let key_ = &buf[i..i + key_len];
             i += key_len;
 
-            let value_len = self.get_value_u64(&buf, i);
+            let value_len = self.get_value(&buf, i);
             i += VALUE_WORD;
 
             let value_ = &buf[i..i + value_len];
