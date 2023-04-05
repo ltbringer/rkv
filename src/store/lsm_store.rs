@@ -1,5 +1,4 @@
 use log::{debug, error};
-use std::fs::create_dir_all;
 use std::io::Result;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -7,10 +6,9 @@ use std::thread;
 use std::{collections::HashMap, path::PathBuf};
 
 use glob::glob;
-use uuid::Uuid;
 
 use crate::sstable::constants::{RKV, TOMBSTONE};
-use crate::sstable::sst::SSTable;
+use crate::sstable::sst::{SSTable, create_sstable};
 
 /// A key value store implemented as an LSM Tree.
 ///
@@ -235,16 +233,6 @@ fn parallel_search(sstables: &mut Vec<SSTable>, k: Vec<u8>) -> Option<Vec<u8>> {
 
     let result = result.lock().unwrap();
     result.clone()
-}
-
-fn create_sstable(n_sstables: usize, sstable_dir: &Path) -> SSTable {
-    let uuid = Uuid::new_v4();
-    let idx = n_sstables + 1;
-    let slug = format!("{}-{}.{}", idx, uuid, RKV);
-    let dirname = sstable_dir.join(RKV).join("data");
-    create_dir_all(dirname.clone()).unwrap();
-    let filename = dirname.join(slug);
-    SSTable::new(filename, true, true, true).unwrap()
 }
 
 fn compaction(sstables: &mut Vec<SSTable>, sstable_dir: &Path) -> SSTable {
