@@ -45,9 +45,7 @@ To follow from scratch, check the releases and tags section. This will help you 
 
 [These benchmarks](https://ltbringer.s3.ap-south-1.amazonaws.com/projects/rkv/reports/report/index.html) were calculated using [Criterion](https://github.com/bheisler/criterion.rs) on infrastructure created by [benchmark-rkv](https://github.com/ltbringer/benchmark-rkv).
 
-### CPU Information
-
-We used a `c6a.2xlarge` AWS EC2 instance.
+We used a `c6a.2xlarge` AWS EC2 instance. This has 8 vCPU and 16GiB memory. We also mount a 1TB `gp3` EBS volume to use as the data directory for the database.
 
 ```text
 $ lscpu
@@ -72,27 +70,6 @@ Caches (sum of all):
   L1i:                   128 KiB (4 instances)
   L2:                    2 MiB (4 instances)
   L3:                    16 MiB (1 instance)
-```
-
-### Memory Information
-
-```text
-
-$ free -h
-
-      total
-Mem:  15Gi
-```
-
-### Disk Information
-
-We mounted a 1TB "gp3" EBS volume. This was used as the data directory for the database.
-
-```text
-$ df -h
-
-Filesystem       Size  Used Avail Use% Mounted on
-/dev/nvme1n1    1000G  7.1G  993G   1% /data
 ```
 
 Head over to [releases](https://github.com/ltbringer/rkv/releases).
