@@ -1,5 +1,5 @@
 use crate::sstable::constants::{KEY_WORD, TOMBSTONE, VALUE_WORD, WORD};
-use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use crate::utils::futil;
 use log::error;
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -79,31 +79,13 @@ impl SSTable {
         for (key, value) in sorted_hashmap {
             let mut buf = vec![];
             let seek_pos = data_file.stream_position()?;
-            index_file.write_u64::<LittleEndian>(seek_pos)?;
-            self.set_key(&mut buf, key.len(), key)?;
-            self.set_value(&mut buf, value.len(), value)?;
+            futil::set_index(&mut index_file, seek_pos)?;
+            futil::set_key(&mut buf, key.len(), key)?;
+            futil::set_value(&mut buf, value.len(), value)?;
             data_file.write_all(&buf)?;
         }
 
         Ok(())
-    }
-
-    fn set_key(&self, buf: &mut Vec<u8>, key_len: usize, key: &[u8]) -> Result<()> {
-        buf.write_u16::<LittleEndian>(key_len as u16)?;
-        buf.write_all(key)
-    }
-
-    fn set_value(&self, buf: &mut Vec<u8>, value_len: usize, value: &[u8]) -> Result<()> {
-        buf.write_u32::<LittleEndian>(value_len as u32)?;
-        buf.write_all(value)
-    }
-
-    fn get_key_size(&self, buf: &[u8], i: usize) -> usize {
-        u16::from_le_bytes(buf[i..i + KEY_WORD].try_into().unwrap()) as usize
-    }
-
-    fn get_value_size(&self, buf: &[u8], i: usize) -> usize {
-        u32::from_le_bytes(buf[i..i + VALUE_WORD].try_into().unwrap()) as usize
     }
 
     pub fn as_hashmap(&mut self) -> Result<HashMap<Vec<u8>, Vec<u8>>> {
@@ -115,13 +97,13 @@ impl SSTable {
         let mut hashmap: HashMap<Vec<u8>, Vec<u8>> = HashMap::new();
 
         while i < buf.len() {
-            let key_len = self.get_key_size(&buf, i);
+            let key_len = futil::get_key_size(&buf, i);
             i += KEY_WORD;
 
             let key_ = &buf[i..i + key_len];
             i += key_len;
 
-            let value_len = self.get_value_size(&buf, i);
+            let value_len = futil::get_value_size(&buf, i);
             i += VALUE_WORD;
 
             let value_ = &buf[i..i + value_len];
@@ -134,46 +116,30 @@ impl SSTable {
         Ok(hashmap)
     }
 
-    fn key_at(&self, pos: u64, index_file: &mut File, data_file: &mut File) -> Result<Vec<u8>> {
-        index_file.seek(SeekFrom::Start(pos * WORD as u64))?;
-        let data_mid = index_file.read_u64::<LittleEndian>()?;
-        data_file.seek(SeekFrom::Start(data_mid))?;
-
-        let key_len = data_file.read_u16::<LittleEndian>()?;
-        let mut key_buf = vec![0; key_len as usize];
-
-        data_file.read_exact(key_buf.as_mut_slice())?;
-        Ok(key_buf)
-    }
-
-    fn get_value(&self, data_file: &mut File) -> Result<Vec<u8>> {
-        let value_len = data_file.read_u32::<LittleEndian>()?;
-        let mut value_buf = vec![0; value_len as usize];
-        data_file.read_exact(value_buf.as_mut_slice())?;
-        Ok(value_buf)
-    }
-
+    /**
+     * Search for the latest value of a given key in an SSTable.
+     */
     pub fn search(&self, key: &[u8]) -> Result<Option<Vec<u8>>> {
-        let mut data_file = self.open(&self.filename)?;
-        let mut index_file = self.open(&self.filename.with_extension("index"))?;
-        let mut start = index_file.seek(SeekFrom::Start(0))?;
-        let mut end = index_file.seek(SeekFrom::End(0))? / WORD as u64;
+        let mut data = self.open(&self.filename)?;
+        let mut index = self.open(&self.filename.with_extension("index"))?;
+        let mut start = index.seek(SeekFrom::Start(0))?;
+        let mut end = index.seek(SeekFrom::End(0))? / WORD as u64;
 
         while start < end {
             let mid = start + (end - start) / 2;
-            let current_key = self.key_at(mid, &mut index_file, &mut data_file)?;
+            let current_key = futil::key_at(mid, &mut index, &mut data)?;
 
             match key.cmp(&current_key) {
                 Ordering::Less => {
                     end = mid;
                 }
                 Ordering::Equal => {
-                    let value = self.get_value(&mut data_file)?;
+                    let value = futil::get_value(&mut data)?;
                     if value != TOMBSTONE {
                         return Ok(Some(value.to_vec()));
                     }
                     if mid + 1 < end {
-                        let next_key = self.key_at(mid + 1, &mut index_file, &mut data_file)?;
+                        let next_key = futil::key_at(mid + 1, &mut index, &mut data)?;
                         if next_key != key {
                             return Ok(Some(value));
                         } else {
