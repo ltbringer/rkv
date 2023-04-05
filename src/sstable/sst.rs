@@ -169,3 +169,47 @@ pub fn create_sstable(n_sstables: usize, sstable_dir: &Path) -> SSTable {
     let filename = dirname.join(slug);
     SSTable::new(filename, true, true, true).unwrap()
 }
+
+
+pub fn merge_sort(sstables: Vec<SSTable>, sstable_dir: &Path) -> Vec<SSTable> {
+    let sstable_size = sstables.len();
+    if sstable_size == 1 {
+        return sstables
+    }
+    // Lets assume we have only two sstables. But they are both sorted.
+    // We can merge them in O(n) time.
+    let mut merged_sstable = create_sstable(sstable_size + 1, sstable_dir);
+    let mut map: HashMap<Vec<u8>, Vec<u8>> = HashMap::new();
+    let left = &sstables[0];
+    let right = &sstables[1];
+    let (mut i, mut j) = (0, 0);
+    let mut l_index = left.open(&left.index).unwrap();
+    let l_end = l_index.seek(SeekFrom::End(0)).unwrap();
+    let mut l_data = left.open(&left.dat).unwrap();
+
+    let mut r_index = right.open(&right.index).unwrap();
+    let mut r_data = right.open(&right.dat).unwrap();
+    let r_end = r_index.seek(SeekFrom::End(0)).unwrap();
+
+    while i < l_end && j < r_end {
+        let l_key = futil::key_at(i, &mut l_index, &mut l_data).unwrap();
+        let r_key = futil::key_at(j, &mut r_index, &mut r_data).unwrap();
+
+        if l_key < r_key {
+            let value = futil::get_value(&mut l_data).unwrap();
+            map.insert(l_key, value);
+            i += WORD as u64;
+        } else {
+            let value = futil::get_value(&mut r_data).unwrap();
+            map.insert(r_key, value);
+            j += WORD as u64;
+        }
+
+        if map.len() > 100_000 {
+            merged_sstable.write(&map).unwrap();
+            map.clear();
+        }
+    }
+
+    vec![merged_sstable]
+}
