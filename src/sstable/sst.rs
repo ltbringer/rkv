@@ -77,19 +77,25 @@ impl SSTable {
         });
 
         for (key, value) in sorted_hashmap {
-            let key_len = key.len() as u16;
-            let value_len = value.len() as u32;
             let mut buf = vec![];
             let seek_pos = data_file.stream_position()?;
             index_file.write_u64::<LittleEndian>(seek_pos)?;
-            buf.write_u16::<LittleEndian>(key_len)?;
-            buf.write_all(key)?;
-            buf.write_u32::<LittleEndian>(value_len)?;
-            buf.write_all(value)?;
+            self.set_key(&mut buf, key.len(), key)?;
+            self.set_value(&mut buf, value.len(), value)?;
             data_file.write_all(&buf)?;
         }
 
         Ok(())
+    }
+
+    fn set_key(&self, buf: &mut Vec<u8>, key_len: usize, key: &[u8]) -> Result<()> {
+        buf.write_u16::<LittleEndian>(key_len as u16)?;
+        buf.write_all(key)
+    }
+
+    fn set_value(&self, buf: &mut Vec<u8>, value_len: usize, value: &[u8]) -> Result<()> {
+        buf.write_u32::<LittleEndian>(value_len as u32)?;
+        buf.write_all(value)
     }
 
     fn get_key(&self, buf: &[u8], i: usize) -> usize {
@@ -128,6 +134,25 @@ impl SSTable {
         Ok(hashmap)
     }
 
+    fn key_at(&self, pos: u64, index_file: &mut File, data_file: &mut File) -> Result<Vec<u8>> {
+        index_file.seek(SeekFrom::Start(pos * WORD as u64))?;
+        let data_mid = index_file.read_u64::<LittleEndian>()?;
+        data_file.seek(SeekFrom::Start(data_mid))?;
+
+        let key_len = data_file.read_u16::<LittleEndian>()?;
+        let mut key_buf = vec![0; key_len as usize];
+
+        data_file.read_exact(key_buf.as_mut_slice())?;
+        Ok(key_buf)
+    }
+
+    fn value_at(&self, data_file: &mut File) -> Result<Vec<u8>> {
+        let value_len = data_file.read_u32::<LittleEndian>()?;
+        let mut value_buf = vec![0; value_len as usize];
+        data_file.read_exact(value_buf.as_mut_slice())?;
+        Ok(value_buf)
+    }
+
     pub fn search(&self, key: &[u8]) -> Result<Option<Vec<u8>>> {
         let mut data_file = self.open(&self.filename)?;
         let mut index_file = self.open(&self.filename.with_extension("index"))?;
@@ -135,25 +160,15 @@ impl SSTable {
         let mut end = index_file.seek(SeekFrom::End(0))? / WORD as u64;
 
         while start < end {
-            let index_mid = start + (end - start) / 2;
-            index_file.seek(SeekFrom::Start(index_mid * WORD as u64))?;
-            let data_mid = index_file.read_u64::<LittleEndian>()?;
-            data_file.seek(SeekFrom::Start(data_mid))?;
-            let key_len = data_file.read_u16::<LittleEndian>()?;
-            let mut key_buf = vec![0; key_len as usize];
-            data_file.read_exact(key_buf.as_mut_slice())?;
-            let current_key = key_buf.as_slice();
+            let mid = start + (end - start) / 2;
+            let current_key = self.key_at(mid, &mut index_file, &mut data_file)?;
 
-            match key.cmp(current_key) {
+            match key.cmp(&current_key) {
                 Ordering::Less => {
-                    end = index_mid;
+                    end = mid;
                 }
                 Ordering::Equal => {
-                    let value_len = data_file.read_u32::<LittleEndian>()?;
-                    let mut value_buf = vec![0; value_len as usize];
-                    data_file.read_exact(value_buf.as_mut_slice())?;
-                    let value = value_buf.as_slice();
-
+                    let value = self.value_at(&mut data_file)?;
                     if value != TOMBSTONE {
                         return Ok(Some(value.to_vec()));
                     } else {
@@ -161,7 +176,7 @@ impl SSTable {
                     }
                 }
                 Ordering::Greater => {
-                    start = index_mid + 1;
+                    start = mid + 1;
                 }
             }
         }
