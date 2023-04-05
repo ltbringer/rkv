@@ -146,7 +146,7 @@ impl SSTable {
         Ok(key_buf)
     }
 
-    fn value_at(&self, data_file: &mut File) -> Result<Vec<u8>> {
+    fn get_value(&self, data_file: &mut File) -> Result<Vec<u8>> {
         let value_len = data_file.read_u32::<LittleEndian>()?;
         let mut value_buf = vec![0; value_len as usize];
         data_file.read_exact(value_buf.as_mut_slice())?;
@@ -168,11 +168,17 @@ impl SSTable {
                     end = mid;
                 }
                 Ordering::Equal => {
-                    let value = self.value_at(&mut data_file)?;
+                    let value = self.get_value(&mut data_file)?;
                     if value != TOMBSTONE {
                         return Ok(Some(value.to_vec()));
-                    } else {
-                        return Ok(None);
+                    }
+                    if mid + 1 < end {
+                        let next_key = self.key_at(mid + 1, &mut index_file, &mut data_file)?;
+                        if next_key != key {
+                            return Ok(Some(value));
+                        } else {
+                            start = mid + 1;
+                        }
                     }
                 }
                 Ordering::Greater => {
