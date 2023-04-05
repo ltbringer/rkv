@@ -93,7 +93,7 @@ impl SSTable {
     }
 
     fn get_key(&self, buf: &[u8], i: usize) -> usize {
-        u16::from_le_bytes(buf[i..i + KEY_WORD].try_into().unwrap()) as usize
+        u64::from_le_bytes(buf[i..i + KEY_WORD].try_into().unwrap()) as usize
     }
 
     fn get_value(&self, buf: &[u8], i: usize) -> usize {
