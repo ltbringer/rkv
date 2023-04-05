@@ -9,7 +9,8 @@ use std::path::PathBuf;
 
 #[derive(Clone)]
 pub struct SSTable {
-    filename: PathBuf,
+    dat: PathBuf,
+    index: PathBuf,
     read: bool,
     write: bool,
     create: bool,
@@ -30,7 +31,8 @@ impl SSTable {
      */
     pub fn new(filename: PathBuf, read: bool, write: bool, create: bool) -> Result<SSTable> {
         Ok(SSTable {
-            filename,
+            dat: filename.clone(),
+            index: filename.with_extension("index"),
             read,
             write,
             create,
@@ -38,7 +40,7 @@ impl SSTable {
     }
 
     pub fn delete(&self) {
-        let filename = self.filename.clone();
+        let filename = self.dat.clone();
         let display_name = filename.as_path().display().to_string();
         if let Err(e) = remove_file(filename) {
             error!("Failed deleting file {} {}", display_name, e);
@@ -63,9 +65,8 @@ impl SSTable {
      *   delimiter character is also an input.
      */
     pub fn write(&mut self, hashmap: &HashMap<Vec<u8>, Vec<u8>>) -> Result<()> {
-        let index_filename = self.filename.with_extension("index");
-        let mut data_file = self.open(&self.filename)?;
-        let mut index_file = self.open(&index_filename)?;
+        let mut data_file = self.open(&self.dat)?;
+        let mut index_file = self.open(&self.index)?;
         data_file.seek(SeekFrom::End(0))?;
         index_file.seek(SeekFrom::End(0))?;
 
@@ -89,7 +90,7 @@ impl SSTable {
     }
 
     pub fn as_hashmap(&mut self) -> Result<HashMap<Vec<u8>, Vec<u8>>> {
-        let mut file = self.open(&self.filename)?;
+        let mut file = self.open(&self.dat)?;
         file.seek(SeekFrom::Start(0))?;
         let mut buf = Vec::new();
         file.read_to_end(&mut buf)?;
@@ -120,8 +121,8 @@ impl SSTable {
      * Search for the latest value of a given key in an SSTable.
      */
     pub fn search(&self, key: &[u8]) -> Result<Option<Vec<u8>>> {
-        let mut data = self.open(&self.filename)?;
-        let mut index = self.open(&self.filename.with_extension("index"))?;
+        let mut data = self.open(&self.dat)?;
+        let mut index = self.open(&self.index)?;
         let mut start = index.seek(SeekFrom::Start(0))?;
         let mut end = index.seek(SeekFrom::End(0))? / WORD as u64;
 
