@@ -156,3 +156,13 @@ impl SSTable {
         Ok(None)
     }
 }
+
+pub fn create_sstable(n_sstables: usize, sstable_dir: &Path) -> SSTable {
+    let uuid = Uuid::new_v4();
+    let idx = n_sstables + 1;
+    let slug = format!("{}-{}.{}", idx, uuid, RKV);
+    let dirname = sstable_dir.join(RKV).join("data");
+    create_dir_all(dirname.clone()).unwrap();
+    let filename = dirname.join(slug);
+    SSTable::new(filename, true, true, true).unwrap()
+}
