@@ -149,7 +149,6 @@ impl SSTable {
                     end = index_mid;
                 }
                 Ordering::Equal => {
-                    u64::MAX;
                     let value_len = data_file.read_u32::<LittleEndian>()?;
                     let mut value_buf = vec![0; value_len as usize];
                     data_file.read_exact(value_buf.as_mut_slice())?;
