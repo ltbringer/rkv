@@ -2,15 +2,16 @@
 mod test {
     use crate::store::lsm_store::KVStore;
     use std::panic::{self, AssertUnwindSafe};
-    use tempfile::TempDir;
+    use tempfile::tempdir;
 
     #[test]
     fn test_add_item() {
         let key = b"life";
         let value = b"42";
         let result = panic::catch_unwind(AssertUnwindSafe(|| {
-            let temp_dir = TempDir::new().unwrap();
-            let path = temp_dir.into_path();
+            let temp_dir = tempdir().unwrap();
+            let path = temp_dir.path().join("test_add_item");
+
             let mut store = KVStore::new(20, path.clone());
             store.set(key, value);
             match store.get(b"life") {
@@ -36,8 +37,8 @@ mod test {
         ];
 
         let result = panic::catch_unwind(AssertUnwindSafe(|| {
-            let temp_dir = TempDir::new().unwrap();
-            let path = temp_dir.into_path();
+            let temp_dir = tempdir().unwrap();
+            let path = temp_dir.path().join("test_sstable_read");
             let mut store = KVStore::new(20, path.clone());
             for (key, value) in setup {
                 store.set(key, value);
@@ -70,8 +71,8 @@ mod test {
         ];
 
         let result = panic::catch_unwind(AssertUnwindSafe(|| {
-            let temp_dir = TempDir::new().unwrap();
-            let path = temp_dir.into_path();
+            let temp_dir = tempdir().unwrap();
+            let path = temp_dir.path().join("test_delete_key");
             let mut store = KVStore::new(20, path.clone());
             for (key, value) in setup {
                 store.set(key, value);
@@ -105,9 +106,9 @@ mod test {
         ];
 
         let result = panic::catch_unwind(AssertUnwindSafe(|| {
-            let temp_dir = TempDir::new().unwrap();
-            let path = temp_dir.into_path();
-            let mut store = KVStore::new(10, path.clone());
+            let temp_dir = tempdir().unwrap();
+            let path = temp_dir.path().join("test_compaction");
+            let mut store = KVStore::new(10, path);
             for (key, value) in setup {
                 store.set(key, value);
             }
@@ -136,7 +137,7 @@ mod test {
                 1,
                 "Compaction should result in 1 table."
             );
-            drop(path);
+            temp_dir.close().unwrap();
         }));
         assert!(result.is_ok());
     }
