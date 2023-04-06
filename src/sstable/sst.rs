@@ -237,3 +237,12 @@ pub fn merge(
 
     Ok(())
 }
+
+pub fn merge_sstables(sstables: Vec<SSTable>, sstable_dir: &Path) -> Result<SSTable> {
+    let mut merged_sstable = create_sstable(sstables.len(), sstable_dir);
+    for (sstable_old, sstable_new) in sstables.iter().zip(sstables.iter().skip(1)) {
+        merge(sstable_old, sstable_new, &mut merged_sstable)?;
+    }
+
+    Ok(merged_sstable)
+}
