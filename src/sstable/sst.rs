@@ -168,7 +168,7 @@ pub fn create_sstable(n_sstables: usize, sstable_dir: &Path) -> SSTable {
     SSTable::new(filename, true, true, true).unwrap()
 }
 
-pub fn merge(
+fn merge(
     sstable_old: &SSTable,
     sstable_new: &SSTable,
     merged_sstable: &mut SSTable,
@@ -177,10 +177,10 @@ pub fn merge(
     let (mut i, mut j) = (0, 0);
 
     let (mut o_data, mut o_index) = sstable_old.open()?;
-    let o_end = o_index.seek(SeekFrom::End(0))?;
+    let o_end = o_index.seek(SeekFrom::End(0))? / WORD as u64;
 
     let (mut n_data, mut n_index) = sstable_new.open()?;
-    let n_end = n_index.seek(SeekFrom::End(0))?;
+    let n_end = n_index.seek(SeekFrom::End(0))? / WORD as u64;
 
     while i < o_end && j < n_end {
         let (o_key, o_value) = futil::key_value_at(i, &mut o_index, &mut o_data)?;
@@ -189,16 +189,16 @@ pub fn merge(
         match o_key.cmp(&n_key) {
             Ordering::Less => {
                 map.insert(o_key, o_value);
-                i += WORD as u64;
+                i += 1;
             }
             Ordering::Equal => {
                 map.insert(n_key, n_value);
-                i += WORD as u64;
-                j += WORD as u64;
+                i += 1;
+                j += 1;
             }
             Ordering::Greater => {
                 map.insert(n_key, n_value);
-                j += WORD as u64;
+                j += 1;
             }
         }
 
@@ -228,6 +228,7 @@ pub fn merge(
         }
     }
 
+    merged_sstable.write(&map)?;
     Ok(())
 }
 
