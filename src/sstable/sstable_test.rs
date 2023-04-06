@@ -2,7 +2,7 @@
 mod test {
     use crate::sstable::sst::SSTable;
     use std::{
-        collections::HashMap,
+        collections::BTreeMap,
         panic::{self, AssertUnwindSafe},
     };
     use tempfile::TempDir;
@@ -21,7 +21,7 @@ mod test {
             };
             let key = b"test_key";
             let value = b"test_value";
-            let mut store = HashMap::new();
+            let mut store = BTreeMap::new();
             store.insert(key.to_vec(), value.to_vec());
             match sstable.write(&store) {
                 Ok(_) => (),

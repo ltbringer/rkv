@@ -2,7 +2,7 @@ use crate::sstable::constants::{KEY_WORD, RKV, TOMBSTONE, VALUE_WORD, WORD};
 use crate::utils::futil;
 use log::error;
 use std::cmp::Ordering;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fs::create_dir_all;
 use std::fs::{remove_file, File, OpenOptions};
 use std::io::{Read, Result, Seek, SeekFrom, Write};
@@ -74,19 +74,12 @@ impl SSTable {
      *   or else we would resort to delimiters and handle cases when the
      *   delimiter character is also an input.
      */
-    pub fn write(&mut self, hashmap: &HashMap<Vec<u8>, Vec<u8>>) -> Result<()> {
+    pub fn write(&mut self, map: &BTreeMap<Vec<u8>, Vec<u8>>) -> Result<()> {
         let (mut data, mut index) = self.open()?;
         data.seek(SeekFrom::End(0))?;
         index.seek(SeekFrom::End(0))?;
 
-        let mut sorted_hashmap: Vec<(&Vec<u8>, &Vec<u8>)> = hashmap.iter().collect();
-        sorted_hashmap.sort_by(|a, b| {
-            let a_key = a.0;
-            let other_key = b.0;
-            a_key.cmp(other_key)
-        });
-
-        for (key, value) in sorted_hashmap {
+        for (key, value) in map {
             let mut buf = vec![];
             let seek_pos = data.stream_position()?;
             futil::set_index(&mut index, seek_pos)?;
@@ -98,13 +91,13 @@ impl SSTable {
         Ok(())
     }
 
-    pub fn as_hashmap(&mut self) -> Result<HashMap<Vec<u8>, Vec<u8>>> {
+    pub fn as_map(&mut self) -> Result<BTreeMap<Vec<u8>, Vec<u8>>> {
         let (mut data, _) = self.open()?;
         data.seek(SeekFrom::Start(0))?;
         let mut buf = Vec::new();
         data.read_to_end(&mut buf)?;
         let mut i: usize = 0;
-        let mut hashmap: HashMap<Vec<u8>, Vec<u8>> = HashMap::new();
+        let mut hashmap: BTreeMap<Vec<u8>, Vec<u8>> = BTreeMap::new();
 
         while i < buf.len() {
             let key_len = futil::get_key_size(&buf, i);
@@ -180,7 +173,7 @@ pub fn merge(
     sstable_new: &SSTable,
     merged_sstable: &mut SSTable,
 ) -> Result<()> {
-    let mut map: HashMap<Vec<u8>, Vec<u8>> = HashMap::new();
+    let mut map: BTreeMap<Vec<u8>, Vec<u8>> = BTreeMap::new();
     let (mut i, mut j) = (0, 0);
 
     let (mut o_data, mut o_index) = sstable_old.open()?;
