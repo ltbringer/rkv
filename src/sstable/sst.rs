@@ -170,7 +170,7 @@ pub fn create_sstable(n_sstables: usize, sstable_dir: &Path) -> SSTable {
     SSTable::new(filename, true, true, true).unwrap()
 }
 
-fn merge(
+fn merge_two(
     sstable_old: &SSTable,
     sstable_new: &SSTable,
     merged_sstable: &mut SSTable,
@@ -235,10 +235,10 @@ fn merge(
     Ok(())
 }
 
-pub fn merge_sstables(sstables: Vec<SSTable>, sstable_dir: &Path) -> Result<SSTable> {
+pub fn merge_sstables(sstables: &Vec<SSTable>, sstable_dir: &Path) -> Result<SSTable> {
     let mut merged_sstable = create_sstable(sstables.len(), sstable_dir);
     for (sstable_old, sstable_new) in sstables.iter().zip(sstables.iter().skip(1)) {
-        merge(sstable_old, sstable_new, &mut merged_sstable, 100_000)?;
+        merge_two(sstable_old, sstable_new, &mut merged_sstable, 100_000)?;
     }
 
     Ok(merged_sstable)
@@ -275,7 +275,7 @@ mod test {
             map.insert(b"key60".to_vec(), b"value7".to_vec());
             sstable_n.write(&map).unwrap();
 
-            merge(&sstable_o, &sstable_n, &mut sstable_m, 0).unwrap();
+            merge_two(&sstable_o, &sstable_n, &mut sstable_m, 0).unwrap();
 
             let buf = &mut Vec::new();
             dat.rewind().unwrap();
@@ -322,7 +322,7 @@ mod test {
             map.insert(b"key10".to_vec(), b"value6".to_vec());
             sstable_n.write(&map).unwrap();
 
-            merge(&sstable_o, &sstable_n, &mut sstable_m, 0).unwrap();
+            merge_two(&sstable_o, &sstable_n, &mut sstable_m, 0).unwrap();
 
             let buf = &mut Vec::new();
             dat.rewind().unwrap();
