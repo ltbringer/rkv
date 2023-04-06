@@ -21,23 +21,18 @@ pub fn get_value_size(buf: &[u8], i: usize) -> usize {
     u32::from_le_bytes(buf[i..i + VALUE_WORD].try_into().unwrap()) as usize
 }
 
-pub fn key_at(pos: u64, index: &mut File, data: &mut File) -> Result<Vec<u8>> {
+pub fn key_value_at(pos: u64, index: &mut File, data: &mut File) -> Result<(Vec<u8>, Vec<u8>)> {
     index.seek(SeekFrom::Start(pos * WORD as u64))?;
     let data_mid = index.read_u64::<LittleEndian>()?;
     data.seek(SeekFrom::Start(data_mid))?;
-
     let key_len = data.read_u16::<LittleEndian>()?;
     let mut key_buf = vec![0; key_len as usize];
-
     data.read_exact(key_buf.as_mut_slice())?;
-    Ok(key_buf)
-}
 
-pub fn get_value(data: &mut File) -> Result<Vec<u8>> {
     let value_len = data.read_u32::<LittleEndian>()?;
     let mut value_buf = vec![0; value_len as usize];
     data.read_exact(value_buf.as_mut_slice())?;
-    Ok(value_buf)
+    Ok((key_buf, value_buf))
 }
 
 pub fn set_index(index_file: &mut File, index: u64) -> Result<()> {
