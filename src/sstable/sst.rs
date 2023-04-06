@@ -176,36 +176,43 @@ pub fn create_sstable(n_sstables: usize, sstable_dir: &Path) -> SSTable {
 }
 
 pub fn merge(
-    sstable_left: SSTable,
-    sstable_right: SSTable,
+    sstable_old: SSTable,
+    sstable_new: SSTable,
     mut merged_sstable: SSTable,
-) -> Vec<SSTable> {
+) -> Result<()> {
     let mut map: HashMap<Vec<u8>, Vec<u8>> = HashMap::new();
     let (mut i, mut j) = (0, 0);
 
-    let (mut l_data, mut l_index) = sstable_left.open().unwrap();
-    let l_end = l_index.seek(SeekFrom::End(0)).unwrap();
+    let (mut o_data, mut o_index) = sstable_old.open()?;
+    let o_end = o_index.seek(SeekFrom::End(0))?;
 
-    let (mut r_data, mut r_index) = sstable_right.open().unwrap();
-    let r_end = r_index.seek(SeekFrom::End(0)).unwrap();
+    let (mut n_data, mut n_index) = sstable_new.open()?;
+    let n_end = n_index.seek(SeekFrom::End(0))?;
 
-    while i < l_end && j < r_end {
-        let (l_key, l_value) = futil::key_value_at(i, &mut l_index, &mut l_data).unwrap();
-        let (r_key, r_value) = futil::key_value_at(j, &mut r_index, &mut r_data).unwrap();
+    while i < o_end && j < n_end {
+        let (o_key, o_value) = futil::key_value_at(i, &mut o_index, &mut o_data)?;
+        let (n_key, n_value) = futil::key_value_at(j, &mut n_index, &mut n_data)?;
 
-        if l_key < r_key {
-            map.insert(l_key, l_value);
-            i += WORD as u64;
-        } else {
-            map.insert(r_key, r_value);
-            j += WORD as u64;
+        match o_key.cmp(&n_key) {
+            Ordering::Less => {
+                map.insert(o_key, o_value);
+                i += WORD as u64;
+            }
+            Ordering::Equal => {
+                map.insert(n_key, n_value);
+                i += WORD as u64;
+                j += WORD as u64;
+            }
+            Ordering::Greater => {
+                map.insert(n_key, n_value);
+                j += WORD as u64;
+            }
         }
 
         if map.len() > 100_000 {
-            merged_sstable.write(&map).unwrap();
+            merged_sstable.write(&map)?;
             map.clear();
         }
     }
-
-    vec![merged_sstable]
+    Ok(())
 }
