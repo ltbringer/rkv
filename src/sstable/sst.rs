@@ -176,9 +176,9 @@ pub fn create_sstable(n_sstables: usize, sstable_dir: &Path) -> SSTable {
 }
 
 pub fn merge(
-    sstable_old: SSTable,
-    sstable_new: SSTable,
-    mut merged_sstable: SSTable,
+    sstable_old: &SSTable,
+    sstable_new: &SSTable,
+    merged_sstable: &mut SSTable,
 ) -> Result<()> {
     let mut map: HashMap<Vec<u8>, Vec<u8>> = HashMap::new();
     let (mut i, mut j) = (0, 0);
