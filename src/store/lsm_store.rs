@@ -28,7 +28,7 @@ pub struct KVStore {
     memtable: BTreeMap<Vec<u8>, Vec<u8>>,
     mem_size: u64,
     max_bytes: u64,
-    sstables: Vec<SSTable>,
+    sstables: Arc<Mutex<Vec<SSTable>>>,
     sstable_dir: PathBuf,
 }
 
@@ -38,7 +38,7 @@ impl KVStore {
             memtable: BTreeMap::new(),
             mem_size: 0,
             max_bytes: size,
-            sstables: vec![],
+            sstables: Arc::new(Mutex::new(vec![])),
             sstable_dir,
         };
         store.discover_sstables();
@@ -51,7 +51,10 @@ impl KVStore {
 
     /// Track the number of sstables.
     pub fn get_sstables_count(&self) -> usize {
-        self.sstables.len()
+        match self.sstables.lock() {
+            Ok(sstables) => sstables.len(),
+            Err(e) => panic!("Failed to lock. Reason: {}", e),
+        }
     }
 
     /// Find sstables after restarts.
@@ -93,7 +96,7 @@ impl KVStore {
     /// These will occupy extra space in multiple sstables. We can periodically clean up and
     /// combine sstables into single table. Since this process is also slow, we run it on a separate thread.
     pub fn compaction(&mut self) {
-        let sstables_ptr = Arc::new(Mutex::new(self.sstables.clone()));
+        let sstables_ptr = self.sstables.clone();
         let sstable_dir = self.sstable_dir.clone();
         let combined_table = thread::spawn(move || {
             let locked_sstables = sstables_ptr.lock();
@@ -104,15 +107,19 @@ impl KVStore {
         })
         .join()
         .unwrap();
-        self.sstables = vec![combined_table];
+        self.sstables = Arc::new(Mutex::new(vec![combined_table]));
     }
 
     /// Drain key-value pairs into an sstable.
     fn flush_memtable(&mut self) -> Result<()> {
-        let mut sstable = create_sstable(self.sstables.len(), &self.sstable_dir);
+        let mut sstable = create_sstable(self.get_sstables_count(), &self.sstable_dir);
         sstable.write(&self.memtable)?;
-        self.sstables.push(sstable);
-        if self.sstables.len() > 2 {
+        match self.sstables.lock() {
+            Ok(mut sstables) => sstables.push(sstable),
+            Err(e) => panic!("Failed to lock. Reason: {}", e),
+        }
+
+        if self.get_sstables_count() > 2 {
             self.compaction();
         }
         self.memtable = BTreeMap::new();
@@ -155,7 +162,7 @@ impl KVStore {
             return Some(v.to_vec());
         }
 
-        parallel_search(&mut self.sstables, k.to_vec())
+        parallel_search(self.sstables.clone(), k.to_vec())
     }
 
     /// Remove a key value pair.
@@ -163,7 +170,7 @@ impl KVStore {
         if self.memtable.remove(k).is_some() {
             return;
         };
-        if parallel_search(&mut self.sstables, k.to_vec()).is_some() {
+        if parallel_search(self.sstables.clone(), k.to_vec()).is_some() {
             self.memtable.insert(k.to_vec(), TOMBSTONE.to_vec());
         }
     }
@@ -179,18 +186,17 @@ impl KVStore {
 /// sstables=Vec<SSTables> is ordered such that the most recent table is at the end.
 /// 1. We partition sstables so that multiple threads can search them in parallel.
 /// 2. We use a channel to collect results from each thread.
-fn parallel_search(sstables: &mut Vec<SSTable>, k: Vec<u8>) -> Option<Vec<u8>> {
-    let n_sstables = sstables.len();
-    let n_threads = std::cmp::min(sstables.len(), 10);
+fn parallel_search(shared_sstables: Arc<Mutex<Vec<SSTable>>>, k: Vec<u8>) -> Option<Vec<u8>> {
+    let n_sstables = shared_sstables.lock().unwrap().len();
+    let n_threads = std::cmp::min(n_sstables, 10);
     let chunk_size = (n_sstables + n_threads - 1) / n_threads;
-    let sstables = Arc::new(sstables.clone());
     let key = Arc::new(k);
     let result: Arc<Mutex<Option<Vec<u8>>>> = Arc::new(Mutex::new(None));
     let mut handles = vec![];
     let last_index: Arc<Mutex<Option<usize>>> = Arc::new(Mutex::new(None));
 
     for i in 0..n_threads {
-        let sstables = sstables.clone();
+        let sstables_locked = shared_sstables.clone();
         let key = key.clone();
         let result = result.clone();
         let last_index = last_index.clone();
@@ -199,6 +205,7 @@ fn parallel_search(sstables: &mut Vec<SSTable>, k: Vec<u8>) -> Option<Vec<u8>> {
         let end = std::cmp::min(start + chunk_size, n_sstables);
 
         let handle = thread::spawn(move || {
+            let sstables = sstables_locked.lock().unwrap();
             let sstable_chunk = &sstables[start..end];
             for (j, sstable) in sstable_chunk.iter().enumerate() {
                 let mut current_last_index = last_index.lock().unwrap();
