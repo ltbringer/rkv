@@ -1,13 +1,13 @@
-use crate::sstable::constants::{KEY_WORD, TOMBSTONE, VALUE_WORD, WORD, RKV};
+use crate::sstable::constants::{KEY_WORD, RKV, TOMBSTONE, VALUE_WORD, WORD};
 use crate::utils::futil;
 use log::error;
 use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::fs::create_dir_all;
 use std::fs::{remove_file, File, OpenOptions};
 use std::io::{Read, Result, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
-use std::fs::create_dir_all;
 
 #[derive(Clone)]
 pub struct SSTable {
@@ -49,12 +49,20 @@ impl SSTable {
         }
     }
 
-    fn open(&self, filename: &PathBuf) -> Result<File> {
-        OpenOptions::new()
+    fn open(&self) -> Result<(File, File)> {
+        let dat = OpenOptions::new()
             .read(self.read)
             .write(self.write)
             .create(self.create)
-            .open(filename)
+            .open(self.dat.clone())?;
+
+        let index = OpenOptions::new()
+            .read(self.read)
+            .write(self.write)
+            .create(self.create)
+            .open(self.index.clone())?;
+
+        Ok((dat, index))
     }
 
     /**
@@ -67,10 +75,9 @@ impl SSTable {
      *   delimiter character is also an input.
      */
     pub fn write(&mut self, hashmap: &HashMap<Vec<u8>, Vec<u8>>) -> Result<()> {
-        let mut data_file = self.open(&self.dat)?;
-        let mut index_file = self.open(&self.index)?;
-        data_file.seek(SeekFrom::End(0))?;
-        index_file.seek(SeekFrom::End(0))?;
+        let (mut data, mut index) = self.open()?;
+        data.seek(SeekFrom::End(0))?;
+        index.seek(SeekFrom::End(0))?;
 
         let mut sorted_hashmap: Vec<(&Vec<u8>, &Vec<u8>)> = hashmap.iter().collect();
         sorted_hashmap.sort_by(|a, b| {
@@ -81,21 +88,21 @@ impl SSTable {
 
         for (key, value) in sorted_hashmap {
             let mut buf = vec![];
-            let seek_pos = data_file.stream_position()?;
-            futil::set_index(&mut index_file, seek_pos)?;
+            let seek_pos = data.stream_position()?;
+            futil::set_index(&mut index, seek_pos)?;
             futil::set_key(&mut buf, key.len(), key)?;
             futil::set_value(&mut buf, value.len(), value)?;
-            data_file.write_all(&buf)?;
+            data.write_all(&buf)?;
         }
 
         Ok(())
     }
 
     pub fn as_hashmap(&mut self) -> Result<HashMap<Vec<u8>, Vec<u8>>> {
-        let mut file = self.open(&self.dat)?;
-        file.seek(SeekFrom::Start(0))?;
+        let (mut data, _) = self.open()?;
+        data.seek(SeekFrom::Start(0))?;
         let mut buf = Vec::new();
-        file.read_to_end(&mut buf)?;
+        data.read_to_end(&mut buf)?;
         let mut i: usize = 0;
         let mut hashmap: HashMap<Vec<u8>, Vec<u8>> = HashMap::new();
 
@@ -123,26 +130,24 @@ impl SSTable {
      * Search for the latest value of a given key in an SSTable.
      */
     pub fn search(&self, key: &[u8]) -> Result<Option<Vec<u8>>> {
-        let mut data = self.open(&self.dat)?;
-        let mut index = self.open(&self.index)?;
+        let (mut data, mut index) = self.open()?;
         let mut start = index.seek(SeekFrom::Start(0))?;
         let mut end = index.seek(SeekFrom::End(0))? / WORD as u64;
 
         while start < end {
             let mid = start + (end - start) / 2;
-            let current_key = futil::key_at(mid, &mut index, &mut data)?;
+            let (current_key, value) = futil::key_value_at(mid, &mut index, &mut data)?;
 
             match key.cmp(&current_key) {
                 Ordering::Less => {
                     end = mid;
                 }
                 Ordering::Equal => {
-                    let value = futil::get_value(&mut data)?;
                     if value != TOMBSTONE {
                         return Ok(Some(value.to_vec()));
                     }
                     if mid + 1 < end {
-                        let next_key = futil::key_at(mid + 1, &mut index, &mut data)?;
+                        let (next_key, _) = futil::key_value_at(mid + 1, &mut index, &mut data)?;
                         if next_key != key {
                             return Ok(Some(value));
                         } else {
@@ -170,38 +175,29 @@ pub fn create_sstable(n_sstables: usize, sstable_dir: &Path) -> SSTable {
     SSTable::new(filename, true, true, true).unwrap()
 }
 
-
-pub fn merge_sort(sstables: Vec<SSTable>, sstable_dir: &Path) -> Vec<SSTable> {
-    let sstable_size = sstables.len();
-    if sstable_size == 1 {
-        return sstables
-    }
-    // Lets assume we have only two sstables. But they are both sorted.
-    // We can merge them in O(n) time.
-    let mut merged_sstable = create_sstable(sstable_size + 1, sstable_dir);
+pub fn merge(
+    sstable_left: SSTable,
+    sstable_right: SSTable,
+    mut merged_sstable: SSTable,
+) -> Vec<SSTable> {
     let mut map: HashMap<Vec<u8>, Vec<u8>> = HashMap::new();
-    let left = &sstables[0];
-    let right = &sstables[1];
     let (mut i, mut j) = (0, 0);
-    let mut l_index = left.open(&left.index).unwrap();
-    let l_end = l_index.seek(SeekFrom::End(0)).unwrap();
-    let mut l_data = left.open(&left.dat).unwrap();
 
-    let mut r_index = right.open(&right.index).unwrap();
-    let mut r_data = right.open(&right.dat).unwrap();
+    let (mut l_data, mut l_index) = sstable_left.open().unwrap();
+    let l_end = l_index.seek(SeekFrom::End(0)).unwrap();
+
+    let (mut r_data, mut r_index) = sstable_right.open().unwrap();
     let r_end = r_index.seek(SeekFrom::End(0)).unwrap();
 
     while i < l_end && j < r_end {
-        let l_key = futil::key_at(i, &mut l_index, &mut l_data).unwrap();
-        let r_key = futil::key_at(j, &mut r_index, &mut r_data).unwrap();
+        let (l_key, l_value) = futil::key_value_at(i, &mut l_index, &mut l_data).unwrap();
+        let (r_key, r_value) = futil::key_value_at(j, &mut r_index, &mut r_data).unwrap();
 
         if l_key < r_key {
-            let value = futil::get_value(&mut l_data).unwrap();
-            map.insert(l_key, value);
+            map.insert(l_key, l_value);
             i += WORD as u64;
         } else {
-            let value = futil::get_value(&mut r_data).unwrap();
-            map.insert(r_key, value);
+            map.insert(r_key, r_value);
             j += WORD as u64;
         }
 
