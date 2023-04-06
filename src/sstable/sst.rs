@@ -240,3 +240,58 @@ pub fn merge_sstables(sstables: Vec<SSTable>, sstable_dir: &Path) -> Result<SSTa
 
     Ok(merged_sstable)
 }
+
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use tempfile::TempDir;
+    use std::panic::{self, AssertUnwindSafe};
+
+    #[test]
+    fn test_merge() {
+        let result = panic::catch_unwind(AssertUnwindSafe(|| {
+            let temp_dir = match TempDir::new() {
+                Ok(dir) => dir,
+                Err(_) => panic!("Failed creating tempdir."),
+            };
+            let sstable_dir = temp_dir.path();
+            let mut sstable_o = create_sstable(0, sstable_dir);
+            let mut sstable_n = create_sstable(1, sstable_dir);
+            let mut sstable_m = create_sstable(2, sstable_dir);
+            let (mut dat, _) = sstable_m.open().unwrap();
+            let mut map = BTreeMap::new();
+            map.insert(b"key1".to_vec(), b"value1".to_vec());
+            map.insert(b"key5".to_vec(), b"value2".to_vec());
+            map.insert(b"key3".to_vec(), b"value3".to_vec());
+            map.insert(b"key10".to_vec(), b"value6".to_vec());
+            sstable_o.write(&map).unwrap();
+            map.clear();
+
+            map.insert(b"key2".to_vec(), b"value4".to_vec());
+            map.insert(b"key3".to_vec(), b"value5".to_vec());
+            map.insert(b"key4".to_vec(), b"value2".to_vec());
+            map.insert(b"key11".to_vec(), b"value7".to_vec());
+            sstable_n.write(&map).unwrap();
+
+            merge(&sstable_o, &sstable_n, &mut sstable_m).unwrap();
+
+            let buf = &mut Vec::new();
+            dat.rewind().unwrap();
+            dat.read_to_end(buf).unwrap();
+            let string = String::from_utf8(buf.to_vec()).unwrap();
+            assert_eq!(
+                string,
+                "\u{4}\0key1\u{6}\0\0\0value1\
+                \u{5}\0key10\u{6}\0\0\0value6\
+                \u{5}\0key11\u{6}\0\0\0value7\
+                \u{4}\0key2\u{6}\0\0\0value4\
+                \u{4}\0key3\u{6}\0\0\0value5\
+                \u{4}\0key4\u{6}\0\0\0value2\
+                \u{4}\0key5\u{6}\0\0\0value2"
+            );
+            drop(temp_dir);
+        }));
+        assert!(result.is_ok());
+    }
+}
