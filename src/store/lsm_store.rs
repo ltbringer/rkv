@@ -1,16 +1,14 @@
 use log::{debug, error};
-use std::fs::create_dir_all;
 use std::io::Result;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::BTreeMap, path::PathBuf};
 
 use glob::glob;
-use uuid::Uuid;
 
 use crate::sstable::constants::{RKV, TOMBSTONE};
-use crate::sstable::sst::SSTable;
+use crate::sstable::sst::{SSTable, create_sstable};
 
 /// A key value store implemented as an LSM Tree.
 ///
@@ -27,7 +25,7 @@ use crate::sstable::sst::SSTable;
 /// ```
 pub struct KVStore {
     /// memtable is
-    memtable: HashMap<Vec<u8>, Vec<u8>>,
+    memtable: BTreeMap<Vec<u8>, Vec<u8>>,
     mem_size: u64,
     max_bytes: u64,
     sstables: Vec<SSTable>,
@@ -37,7 +35,7 @@ pub struct KVStore {
 impl KVStore {
     pub fn new(size: u64, sstable_dir: PathBuf) -> Self {
         let mut store = KVStore {
-            memtable: HashMap::new(),
+            memtable: BTreeMap::new(),
             mem_size: 0,
             max_bytes: size,
             sstables: vec![],
@@ -117,7 +115,7 @@ impl KVStore {
         if self.sstables.len() > 2 {
             self.compaction();
         }
-        self.memtable = HashMap::new();
+        self.memtable = BTreeMap::new();
         self.mem_size = 0;
         Ok(())
     }
@@ -237,21 +235,11 @@ fn parallel_search(sstables: &mut Vec<SSTable>, k: Vec<u8>) -> Option<Vec<u8>> {
     result.clone()
 }
 
-fn create_sstable(n_sstables: usize, sstable_dir: &Path) -> SSTable {
-    let uuid = Uuid::new_v4();
-    let idx = n_sstables + 1;
-    let slug = format!("{}-{}.{}", idx, uuid, RKV);
-    let dirname = sstable_dir.join(RKV).join("data");
-    create_dir_all(dirname.clone()).unwrap();
-    let filename = dirname.join(slug);
-    SSTable::new(filename, true, true, true).unwrap()
-}
-
 fn compaction(sstables: &mut Vec<SSTable>, sstable_dir: &Path) -> SSTable {
-    let mut store: HashMap<Vec<u8>, Vec<u8>> = HashMap::new();
+    let mut store: BTreeMap<Vec<u8>, Vec<u8>> = BTreeMap::new();
     let n_sstables = sstables.len();
     for sstable in &mut *sstables {
-        if let Ok(hashmap) = sstable.as_hashmap() {
+        if let Ok(hashmap) = sstable.as_map() {
             store.extend(hashmap)
         }
     }
