@@ -168,11 +168,7 @@ pub fn create_sstable(n_sstables: usize, sstable_dir: &Path) -> SSTable {
     SSTable::new(filename, true, true, true).unwrap()
 }
 
-fn merge(
-    sstable_old: &SSTable,
-    sstable_new: &SSTable,
-    merged_sstable: &mut SSTable,
-) -> Result<()> {
+fn merge(sstable_old: &SSTable, sstable_new: &SSTable, merged_sstable: &mut SSTable) -> Result<()> {
     let mut map: BTreeMap<Vec<u8>, Vec<u8>> = BTreeMap::new();
     let (mut i, mut j) = (0, 0);
 
@@ -241,12 +237,11 @@ pub fn merge_sstables(sstables: Vec<SSTable>, sstable_dir: &Path) -> Result<SSTa
     Ok(merged_sstable)
 }
 
-
 #[cfg(test)]
 mod test {
     use super::*;
-    use tempfile::TempDir;
     use std::panic::{self, AssertUnwindSafe};
+    use tempfile::TempDir;
 
     #[test]
     fn test_merge() {

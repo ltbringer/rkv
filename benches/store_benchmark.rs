@@ -9,8 +9,8 @@ fn as_bytes(x: Vec<u64>) -> Vec<Vec<u8>> {
 }
 
 pub fn criterion_benchmark(c: &mut Criterion) {
-    let temp_dir = PathBuf::from(env::var("DAT_DIR")
-        .unwrap_or_else(|_| "/tmp/database".to_string()));
+    let temp_dir =
+        PathBuf::from(env::var("DAT_DIR").unwrap_or_else(|_| "/tmp/database".to_string()));
     let default_n_keys = 1_000_000;
     let n_keys = match env::var("N_KEYS") {
         Ok(env_n_keys) => env_n_keys.parse().unwrap_or(default_n_keys),

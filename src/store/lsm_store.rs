@@ -8,7 +8,7 @@ use std::{collections::BTreeMap, path::PathBuf};
 use glob::glob;
 
 use crate::sstable::constants::{RKV, TOMBSTONE};
-use crate::sstable::sst::{SSTable, create_sstable};
+use crate::sstable::sst::{create_sstable, SSTable};
 
 /// A key value store implemented as an LSM Tree.
 ///
