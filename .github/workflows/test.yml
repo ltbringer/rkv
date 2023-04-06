@@ -2,7 +2,7 @@
 on: 
   push:
     branches: 
-      - main
+      - "*"
     tags:
       - "*.*.*"
 
@@ -86,6 +86,11 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v2
 
+      - name: Extract branch name
+        shell: bash
+        run: echo "BRANCH=$(echo ${GITHUB_REF#refs/heads/})" >>$GITHUB_OUTPUT
+        id: branch_name
+
       - name: Set env
         id: tag
         run: echo "TAG=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
@@ -101,6 +106,7 @@ jobs:
 
       - name: Build and push
         uses: docker/build-push-action@v4
+        if: steps.branch.outputs.BRANCH == 'main'
         with:
           context: .
           file: bench.Dockerfile 
