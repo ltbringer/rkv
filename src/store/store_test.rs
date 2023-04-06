@@ -9,17 +9,15 @@ mod test {
         let key = b"life";
         let value = b"42";
         let result = panic::catch_unwind(AssertUnwindSafe(|| {
-            let temp_dir = match TempDir::new() {
-                Ok(dir) => dir,
-                Err(_) => panic!("Failed creating tempdir."),
-            };
-            let mut store = KVStore::new(20, temp_dir.into_path());
+            let temp_dir = TempDir::new().unwrap();
+            let path = temp_dir.into_path();
+            let mut store = KVStore::new(20, path.clone());
             store.set(key, value);
             match store.get(b"life") {
                 Some(v) => assert_eq!(v, value, "Expected value to be b'42'"),
                 None => panic!("Expected value to be b'42'"),
             }
-            drop(store);
+            drop(path);
         }));
         assert!(result.is_ok());
     }
@@ -38,11 +36,9 @@ mod test {
         ];
 
         let result = panic::catch_unwind(AssertUnwindSafe(|| {
-            let temp_dir = match TempDir::new() {
-                Ok(dir) => dir,
-                Err(_) => panic!("Failed creating tempdir."),
-            };
-            let mut store = KVStore::new(20, temp_dir.into_path());
+            let temp_dir = TempDir::new().unwrap();
+            let path = temp_dir.into_path();
+            let mut store = KVStore::new(20, path.clone());
             for (key, value) in setup {
                 store.set(key, value);
             }
@@ -56,7 +52,7 @@ mod test {
                 Some(v) => assert_eq!(v, b"value121", "Value mismatch"),
                 None => panic!("Expected a value to be found'"),
             }
-            drop(store);
+            drop(path);
         }));
         assert!(result.is_ok());
     }
@@ -74,11 +70,9 @@ mod test {
         ];
 
         let result = panic::catch_unwind(AssertUnwindSafe(|| {
-            let temp_dir = match TempDir::new() {
-                Ok(dir) => dir,
-                Err(_) => panic!("Failed creating tempdir."),
-            };
-            let mut store = KVStore::new(20, temp_dir.into_path());
+            let temp_dir = TempDir::new().unwrap();
+            let path = temp_dir.into_path();
+            let mut store = KVStore::new(20, path.clone());
             for (key, value) in setup {
                 store.set(key, value);
             }
@@ -88,7 +82,7 @@ mod test {
             if let Some(v) = store.get(b"key2") {
                 panic!("Unexpected value {:?} found", v);
             }
-            drop(store);
+            drop(path);
         }));
         assert!(result.is_ok());
     }
@@ -101,17 +95,19 @@ mod test {
             (b"key3", b"value3"),
             (b"key4", b"value4"),
             (b"key1", b"value7"),
+            (b"key5", b"value1"),
+            (b"key5", b"value2"),
+            (b"key5", b"value3"),
+            (b"key5", b"value4"),
             (b"key5", b"value5"),
             (b"key6", b"value6"),
             (b"key7", b"value7"),
         ];
 
         let result = panic::catch_unwind(AssertUnwindSafe(|| {
-            let temp_dir = match TempDir::new() {
-                Ok(dir) => dir,
-                Err(_) => panic!("Failed creating tempdir."),
-            };
-            let mut store = KVStore::new(10, temp_dir.into_path());
+            let temp_dir = TempDir::new().unwrap();
+            let path = temp_dir.into_path();
+            let mut store = KVStore::new(10, path.clone());
             for (key, value) in setup {
                 store.set(key, value);
             }
@@ -130,13 +126,17 @@ mod test {
                 Some(v) => assert_eq!(v, b"value3", "Expected value to be b'value3'"),
                 None => panic!("Expected a value to be found'"),
             }
+            match store.get(b"key5") {
+                Some(v) => assert_eq!(v, b"value5", "Expected value to be b'value3'"),
+                None => panic!("Expected a value to be found'"),
+            }
 
             assert_eq!(
                 store.get_sstables_count(),
                 1,
                 "Compaction should result in 1 table."
             );
-            drop(store);
+            drop(path);
         }));
         assert!(result.is_ok());
     }

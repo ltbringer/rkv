@@ -136,8 +136,8 @@ impl SSTable {
                     end = mid;
                 }
                 Ordering::Equal => {
-                    if value != TOMBSTONE {
-                        return Ok(Some(value.to_vec()));
+                    if value == TOMBSTONE {
+                        return Ok(None);
                     }
                     if mid + 1 < end {
                         let (next_key, _) = futil::key_value_at(mid + 1, &mut index, &mut data)?;
@@ -146,6 +146,8 @@ impl SSTable {
                         } else {
                             start = mid + 1;
                         }
+                    } else {
+                        return Ok(Some(value));
                     }
                 }
                 Ordering::Greater => {
@@ -168,7 +170,12 @@ pub fn create_sstable(n_sstables: usize, sstable_dir: &Path) -> SSTable {
     SSTable::new(filename, true, true, true).unwrap()
 }
 
-fn merge(sstable_old: &SSTable, sstable_new: &SSTable, merged_sstable: &mut SSTable) -> Result<()> {
+fn merge(
+    sstable_old: &SSTable,
+    sstable_new: &SSTable,
+    merged_sstable: &mut SSTable,
+    log_size: usize,
+) -> Result<()> {
     let mut map: BTreeMap<Vec<u8>, Vec<u8>> = BTreeMap::new();
     let (mut i, mut j) = (0, 0);
 
@@ -198,7 +205,7 @@ fn merge(sstable_old: &SSTable, sstable_new: &SSTable, merged_sstable: &mut SSTa
             }
         }
 
-        if map.len() > 100_000 {
+        if map.len() > log_size {
             merged_sstable.write(&map)?;
             map.clear();
         }
@@ -208,7 +215,7 @@ fn merge(sstable_old: &SSTable, sstable_new: &SSTable, merged_sstable: &mut SSTa
         let (o_key, o_value) = futil::key_value_at(i, &mut o_index, &mut o_data)?;
         map.insert(o_key, o_value);
         i += WORD as u64;
-        if map.len() > 100_000 {
+        if map.len() > log_size {
             merged_sstable.write(&map)?;
             map.clear();
         }
@@ -218,7 +225,7 @@ fn merge(sstable_old: &SSTable, sstable_new: &SSTable, merged_sstable: &mut SSTa
         let (n_key, n_value) = futil::key_value_at(j, &mut n_index, &mut n_data)?;
         map.insert(n_key, n_value);
         j += WORD as u64;
-        if map.len() > 100_000 {
+        if map.len() > log_size {
             merged_sstable.write(&map)?;
             map.clear();
         }
@@ -231,7 +238,7 @@ fn merge(sstable_old: &SSTable, sstable_new: &SSTable, merged_sstable: &mut SSTa
 pub fn merge_sstables(sstables: Vec<SSTable>, sstable_dir: &Path) -> Result<SSTable> {
     let mut merged_sstable = create_sstable(sstables.len(), sstable_dir);
     for (sstable_old, sstable_new) in sstables.iter().zip(sstables.iter().skip(1)) {
-        merge(sstable_old, sstable_new, &mut merged_sstable)?;
+        merge(sstable_old, sstable_new, &mut merged_sstable, 100_000)?;
     }
 
     Ok(merged_sstable)
@@ -244,12 +251,9 @@ mod test {
     use tempfile::TempDir;
 
     #[test]
-    fn test_merge() {
+    fn test_merge_n_sstable_large() {
         let result = panic::catch_unwind(AssertUnwindSafe(|| {
-            let temp_dir = match TempDir::new() {
-                Ok(dir) => dir,
-                Err(_) => panic!("Failed creating tempdir."),
-            };
+            let temp_dir = TempDir::new().unwrap();
             let sstable_dir = temp_dir.path();
             let mut sstable_o = create_sstable(0, sstable_dir);
             let mut sstable_n = create_sstable(1, sstable_dir);
@@ -266,10 +270,59 @@ mod test {
             map.insert(b"key2".to_vec(), b"value4".to_vec());
             map.insert(b"key3".to_vec(), b"value5".to_vec());
             map.insert(b"key4".to_vec(), b"value2".to_vec());
+            map.insert(b"key10".to_vec(), b"value9".to_vec());
             map.insert(b"key11".to_vec(), b"value7".to_vec());
+            map.insert(b"key60".to_vec(), b"value7".to_vec());
             sstable_n.write(&map).unwrap();
 
-            merge(&sstable_o, &sstable_n, &mut sstable_m).unwrap();
+            merge(&sstable_o, &sstable_n, &mut sstable_m, 0).unwrap();
+
+            let buf = &mut Vec::new();
+            dat.rewind().unwrap();
+            dat.read_to_end(buf).unwrap();
+            let string = String::from_utf8(buf.to_vec()).unwrap();
+            assert_eq!(
+                string,
+                "\u{4}\0key1\u{6}\0\0\0value1\
+                \u{5}\0key10\u{6}\0\0\0value9\
+                \u{5}\0key11\u{6}\0\0\0value7\
+                \u{4}\0key2\u{6}\0\0\0value4\
+                \u{4}\0key3\u{6}\0\0\0value5\
+                \u{4}\0key4\u{6}\0\0\0value2\
+                \u{4}\0key5\u{6}\0\0\0value2\
+                \u{5}\0key60\u{6}\0\0\0value7"
+            );
+            drop(temp_dir);
+        }));
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_merge_o_sstable_large() {
+        let result = panic::catch_unwind(AssertUnwindSafe(|| {
+            let temp_dir = TempDir::new().unwrap();
+            let sstable_dir = temp_dir.path();
+            let mut sstable_o = create_sstable(0, sstable_dir);
+            let mut sstable_n = create_sstable(1, sstable_dir);
+            let mut sstable_m = create_sstable(2, sstable_dir);
+            let (mut dat, _) = sstable_m.open().unwrap();
+            let mut map = BTreeMap::new();
+            map.insert(b"key2".to_vec(), b"value4".to_vec());
+            map.insert(b"key3".to_vec(), b"value5".to_vec());
+            map.insert(b"key4".to_vec(), b"value2".to_vec());
+            map.insert(b"key10".to_vec(), b"value9".to_vec());
+            map.insert(b"key11".to_vec(), b"value7".to_vec());
+            map.insert(b"key60".to_vec(), b"value7".to_vec());
+            sstable_o.write(&map).unwrap();
+            map.clear();
+
+            map.insert(b"key1".to_vec(), b"value1".to_vec());
+            map.insert(b"key5".to_vec(), b"value2".to_vec());
+            map.insert(b"key3".to_vec(), b"value3".to_vec());
+            map.insert(b"key10".to_vec(), b"value6".to_vec());
+            sstable_n.write(&map).unwrap();
+
+            merge(&sstable_o, &sstable_n, &mut sstable_m, 0).unwrap();
 
             let buf = &mut Vec::new();
             dat.rewind().unwrap();
@@ -281,12 +334,14 @@ mod test {
                 \u{5}\0key10\u{6}\0\0\0value6\
                 \u{5}\0key11\u{6}\0\0\0value7\
                 \u{4}\0key2\u{6}\0\0\0value4\
-                \u{4}\0key3\u{6}\0\0\0value5\
+                \u{4}\0key3\u{6}\0\0\0value3\
                 \u{4}\0key4\u{6}\0\0\0value2\
-                \u{4}\0key5\u{6}\0\0\0value2"
+                \u{4}\0key5\u{6}\0\0\0value2\
+                \u{5}\0key60\u{6}\0\0\0value7"
             );
             drop(temp_dir);
         }));
         assert!(result.is_ok());
     }
+
 }
