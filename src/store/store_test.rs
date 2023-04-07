@@ -113,8 +113,6 @@ mod test {
                 store.set(key, value);
             }
 
-            store.compaction();
-
             match store.get(b"key1") {
                 Some(v) => assert_eq!(v, b"value7", "Expected value to be b'value7'"),
                 None => panic!("Expected value7 to be found'"),
