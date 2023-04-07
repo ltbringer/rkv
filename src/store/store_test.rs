@@ -117,19 +117,31 @@ mod test {
 
             match store.get(b"key1") {
                 Some(v) => assert_eq!(v, b"value7", "Expected value to be b'value7'"),
-                None => panic!("Expected a value to be found'"),
+                None => panic!("Expected value7 to be found'"),
             }
             match store.get(b"key2") {
                 Some(v) => assert_eq!(v, b"value2", "Expected value to be b'value2'"),
-                None => panic!("Expected a value to be found'"),
+                None => panic!("Expected value2 to be found'"),
             }
             match store.get(b"key3") {
                 Some(v) => assert_eq!(v, b"value3", "Expected value to be b'value3'"),
-                None => panic!("Expected a value to be found'"),
+                None => panic!("Expected a value3 to be found'"),
+            }
+            match store.get(b"key4") {
+                Some(v) => assert_eq!(v, b"value4", "Expected value to be b'value3'"),
+                None => panic!("Expected a value4 to be found'"),
             }
             match store.get(b"key5") {
                 Some(v) => assert_eq!(v, b"value5", "Expected value to be b'value3'"),
-                None => panic!("Expected a value to be found'"),
+                None => panic!("Expected a value5 to be found'"),
+            }
+            match store.get(b"key6") {
+                Some(v) => assert_eq!(v, b"value6", "Expected value to be b'value3'"),
+                None => panic!("Expected a value6 to be found'"),
+            }
+            match store.get(b"key7") {
+                Some(v) => assert_eq!(v, b"value7", "Expected value to be b'value3'"),
+                None => panic!("Expected a value7 to be found'"),
             }
 
             assert_eq!(
