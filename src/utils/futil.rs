@@ -30,3 +30,13 @@ pub fn key_value_at(pos: u64, index: &mut File, data: &mut File) -> Result<(Vec<
 pub fn set_index(index_file: &mut File, index: u64) -> Result<()> {
     index_file.write_u64::<LittleEndian>(index)
 }
+
+pub fn get_index_range(index: &mut File) -> (u64, u64) {
+    let first_address = index.seek(SeekFrom::Start(0));
+    let last_address = index.seek(SeekFrom::End(0));
+
+    match (first_address, last_address) {
+        (Ok(first), Ok(last)) => (first / WORD as u64, last / WORD as u64),
+        e => panic!("Failed to get index bounds. Reason: {:?}", e),
+    }
+}

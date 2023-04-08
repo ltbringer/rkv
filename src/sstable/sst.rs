@@ -129,9 +129,7 @@ impl SSTable {
      */
     pub fn search(&self, key: &[u8]) -> Result<Option<Vec<u8>>> {
         let (mut data, mut index) = self.open()?;
-        let mut start = index.seek(SeekFrom::Start(0))?;
-        let mut end = index.seek(SeekFrom::End(0))? / WORD as u64;
-
+        let (mut start, mut end) = futil::get_index_range(&mut index);
         while start < end {
             let mid = start + (end - start) / 2;
             let (current_key, value) = futil::key_value_at(mid, &mut index, &mut data)?;
@@ -185,10 +183,10 @@ fn merge_two(
     let (mut i, mut j) = (0, 0);
 
     let (mut o_data, mut o_index) = sstable_old.open()?;
-    let o_end = o_index.seek(SeekFrom::End(0))? / WORD as u64;
+    let (_, o_end) = futil::get_index_range(&mut o_index);
 
     let (mut n_data, mut n_index) = sstable_new.open()?;
-    let n_end = n_index.seek(SeekFrom::End(0))? / WORD as u64;
+    let (_, n_end) = futil::get_index_range(&mut n_index);
 
     while i < o_end && j < n_end {
         let (o_key, o_value) = futil::key_value_at(i, &mut o_index, &mut o_data)?;
