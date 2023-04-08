@@ -25,7 +25,10 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         Err(_) => default_n_keys,
     };
 
-    let key_length = 6000; // Max 65535
+    let key_length = match env::var("KEY_LENGTH") {
+        Ok(env_n_keys) => env_n_keys.parse().unwrap_or(500),
+        Err(_) => 500,
+    }; // Max 65535
     let key_per_table = 100_000;
     let mut store = KVStore::new("benchmark".to_owned(), key_per_table, path.clone());
     let step = (n_keys / 5) as usize;
@@ -41,7 +44,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         "PARAMS:
         , n_keys={}
         , key_length={}
-        , key_per_table={}
+        , key_per_table={} (before compaction)
         , step={}",
         n_keys, key_length, key_per_table, step
     );
