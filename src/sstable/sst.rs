@@ -1,11 +1,11 @@
-use crate::sstable::constants::{KEY_WORD, RKV, TOMBSTONE, VALUE_WORD, WORD};
+use crate::sstable::constants::{RKV, TOMBSTONE};
 use crate::utils::futil;
 use log::error;
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::fs::create_dir_all;
 use std::fs::{remove_file, File, OpenOptions};
-use std::io::{Read, Result, Seek, SeekFrom, Write};
+use std::io::{Result, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -94,34 +94,6 @@ impl SSTable {
         }
 
         Ok(())
-    }
-
-    pub fn as_map(&mut self) -> Result<BTreeMap<Vec<u8>, Vec<u8>>> {
-        let (mut data, _) = self.open()?;
-        data.seek(SeekFrom::Start(0))?;
-        let mut buf = Vec::new();
-        data.read_to_end(&mut buf)?;
-        let mut i: usize = 0;
-        let mut hashmap: BTreeMap<Vec<u8>, Vec<u8>> = BTreeMap::new();
-
-        while i < buf.len() {
-            let key_len = futil::get_key_size(&buf, i);
-            i += KEY_WORD;
-
-            let key_ = &buf[i..i + key_len];
-            i += key_len;
-
-            let value_len = futil::get_value_size(&buf, i);
-            i += VALUE_WORD;
-
-            let value_ = &buf[i..i + value_len];
-            i += value_len;
-
-            if value_ != TOMBSTONE {
-                hashmap.insert(key_.to_vec(), value_.to_vec());
-            }
-        }
-        Ok(hashmap)
     }
 
     /**
