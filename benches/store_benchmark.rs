@@ -18,7 +18,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     };
     let size = 16;
     let key_per_table = 100_000 * size;
-    let mut store = KVStore::new(key_per_table, temp_dir);
+    let mut store = KVStore::new("benchmark".to_owned(), key_per_table, temp_dir);
     let step = (n_keys / 5) as usize;
     let keys = (0..n_keys).collect::<Vec<u64>>();
     let key_bytes = as_bytes(keys);

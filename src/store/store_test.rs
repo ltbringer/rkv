@@ -10,15 +10,16 @@ mod test {
         let value = b"42";
         let result = panic::catch_unwind(AssertUnwindSafe(|| {
             let temp_dir = tempdir().unwrap();
-            let path = temp_dir.path().join("test_add_item");
+            let path = temp_dir.path().to_path_buf();
 
-            let mut store = KVStore::new(20, path.clone());
+            let mut store = KVStore::new("test_add_item".to_owned(), 20, path.clone());
             store.set(key, value);
             match store.get(b"life") {
                 Some(v) => assert_eq!(v, value, "Expected value to be b'42'"),
                 None => panic!("Expected value to be b'42'"),
             }
             drop(path);
+            temp_dir.close().unwrap();
         }));
         assert!(result.is_ok());
     }
@@ -38,8 +39,8 @@ mod test {
 
         let result = panic::catch_unwind(AssertUnwindSafe(|| {
             let temp_dir = tempdir().unwrap();
-            let path = temp_dir.path().join("test_sstable_read");
-            let mut store = KVStore::new(20, path.clone());
+            let path = temp_dir.path().to_path_buf();
+            let mut store = KVStore::new("test_sstable_read".to_owned(), 20, path.clone());
             for (key, value) in setup {
                 store.set(key, value);
             }
@@ -54,6 +55,7 @@ mod test {
                 None => panic!("Expected a value to be found'"),
             }
             drop(path);
+            temp_dir.close().unwrap();
         }));
         assert!(result.is_ok());
     }
@@ -72,8 +74,8 @@ mod test {
 
         let result = panic::catch_unwind(AssertUnwindSafe(|| {
             let temp_dir = tempdir().unwrap();
-            let path = temp_dir.path().join("test_delete_key");
-            let mut store = KVStore::new(20, path.clone());
+            let path = temp_dir.path().to_path_buf();
+            let mut store = KVStore::new("test_delete_key".to_owned(), 20, path.clone());
             for (key, value) in setup {
                 store.set(key, value);
             }
@@ -84,6 +86,7 @@ mod test {
                 panic!("Unexpected value {:?} found", v);
             }
             drop(path);
+            temp_dir.close().unwrap();
         }));
         assert!(result.is_ok());
     }
@@ -107,8 +110,8 @@ mod test {
 
         let result = panic::catch_unwind(AssertUnwindSafe(|| {
             let temp_dir = tempdir().unwrap();
-            let path = temp_dir.path().join("test_compaction");
-            let mut store = KVStore::new(10, path);
+            let path = temp_dir.path().to_path_buf();
+            let mut store = KVStore::new("test_compaction".to_owned(), 10, path);
             for (key, value) in setup {
                 store.set(key, value);
             }

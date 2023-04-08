@@ -16,13 +16,14 @@ use crate::sstable::sst::{create_sstable, sstable_compaction, SSTable};
 /// use std::path::PathBuf;
 /// use rkv::store::lsm_store::KVStore;
 ///
-/// let mut store = KVStore::new(100, PathBuf::from("/tmp/.tmp20aefd00/book_ratings/"));
+/// let mut store = KVStore::new("database".to_owned(), 100, PathBuf::from("/tmp/.tmp20aefd00/book_ratings/"));
 /// store.set(b"The Rust Programming language", b"5");
 /// if let Some(v) = store.get(b"The Rust Programming language") {
 ///     assert_eq!(v.as_slice(), b"5");
 /// }
 /// ```
 pub struct KVStore {
+    name: String,
     /// memtable is
     memtable: BTreeMap<Vec<u8>, Vec<u8>>,
     mem_size: u64,
@@ -32,8 +33,9 @@ pub struct KVStore {
 }
 
 impl KVStore {
-    pub fn new(size: u64, sstable_dir: PathBuf) -> Self {
+    pub fn new(name: String, size: u64, sstable_dir: PathBuf) -> Self {
         let mut store = KVStore {
+            name,
             memtable: BTreeMap::new(),
             mem_size: 0,
             max_bytes: size,
@@ -101,7 +103,7 @@ impl KVStore {
 
     /// Drain key-value pairs into an sstable.
     fn flush_memtable(&mut self) -> Result<()> {
-        let mut sstable = create_sstable(self.get_sstables_count(), &self.sstable_dir);
+        let mut sstable = create_sstable(self.get_sstables_count(), &self.sstable_dir.join(&self.name));
         sstable.write(&self.memtable)?;
         match self.sstables.lock() {
             Ok(mut sstables) => sstables.push(sstable),
