@@ -47,10 +47,16 @@ impl SSTable {
         let filename = self.dat.clone();
         let display_name = filename.as_path().display().to_string();
         if let Err(e) = remove_file(filename) {
-            error!("Failed deleting the data file for {} because {}", display_name, e);
+            error!(
+                "Failed deleting the data file for {} because {}",
+                display_name, e
+            );
         }
         if let Err(e) = remove_file(self.index.clone()) {
-            error!("Failed deleting the data file for {} because {}", display_name, e);
+            error!(
+                "Failed deleting the data file for {} because {}",
+                display_name, e
+            );
         }
     }
 

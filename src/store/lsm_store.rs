@@ -108,7 +108,10 @@ impl KVStore {
 
     /// Drain key-value pairs into an sstable.
     fn flush_memtable(&mut self) -> Result<()> {
-        let mut sstable = create_sstable(self.get_sstables_count(), &self.sstable_dir.join(&self.name));
+        let mut sstable = create_sstable(
+            self.get_sstables_count(),
+            &self.sstable_dir.join(&self.name),
+        );
         sstable.write(&self.memtable.lock().unwrap())?;
         match self.sstables.lock() {
             Ok(mut sstables) => sstables.push(sstable),
@@ -160,7 +163,6 @@ impl KVStore {
 
     /// Remove a key value pair.
     pub fn delete(&mut self, k: &[u8]) {
-
         match self.memtable.lock() {
             Ok(mut memtable) => memtable.insert(k.to_vec(), TOMBSTONE.to_vec()),
             Err(e) => panic!("Failed to lock. Reason: {}", e),

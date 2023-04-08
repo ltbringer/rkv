@@ -1,9 +1,9 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use rkv::store::lsm_store::KVStore;
 use rand::{distributions::Alphanumeric, Rng};
+use rkv::store::lsm_store::KVStore;
 use std::env;
-use std::thread;
 use std::sync::Arc;
+use std::thread;
 use tempfile::tempdir;
 
 fn rand_string(l: usize) -> String {
@@ -32,14 +32,19 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
     println!("Creating {} random key strings.", n_keys);
 
-    let keys = (0..n_keys).map(|_| rand_string(key_length)).collect::<Vec<String>>();
+    let keys = (0..n_keys)
+        .map(|_| rand_string(key_length))
+        .collect::<Vec<String>>();
     let key_chunks: Vec<Vec<String>> = keys.chunks(8).map(|c| c.to_vec()).collect();
 
-    println!("PARAMS:
+    println!(
+        "PARAMS:
         , n_keys={}
         , key_length={}
         , key_per_table={}
-        , step={}", n_keys, key_length, key_per_table, step);
+        , step={}",
+        n_keys, key_length, key_per_table, step
+    );
 
     println!("Inserting {} keys ...", n_keys);
 
@@ -65,8 +70,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
     let mut group = c.benchmark_group(format!(
         "get-perf_{}-keys-ofsize-{}-each",
-        n_keys,
-        key_length
+        n_keys, key_length
     ));
 
     group.significance_level(0.1).sample_size(10);
