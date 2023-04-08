@@ -8,7 +8,7 @@ use std::{collections::BTreeMap, path::PathBuf};
 use glob::glob;
 
 use crate::sstable::constants::{RKV, TOMBSTONE};
-use crate::sstable::sst::{create_sstable, SSTable};
+use crate::sstable::sst::{create_sstable, sstable_compaction, SSTable};
 
 /// A key value store implemented as an LSM Tree.
 ///
@@ -96,18 +96,8 @@ impl KVStore {
     /// These will occupy extra space in multiple sstables. We can periodically clean up and
     /// combine sstables into single table. Since this process is also slow, we run it on a separate thread.
     pub fn compaction(&mut self) {
-        let sstables_ptr = self.sstables.clone();
         let sstable_dir = self.sstable_dir.clone();
-        let combined_table = thread::spawn(move || {
-            let locked_sstables = sstables_ptr.lock();
-            match locked_sstables {
-                Ok(mut sstables) => compaction(&mut sstables, &sstable_dir),
-                Err(e) => panic!("oops {}", e),
-            }
-        })
-        .join()
-        .unwrap();
-        self.sstables = Arc::new(Mutex::new(vec![combined_table]));
+        self.sstables = sstable_compaction(self.sstables.clone(), &sstable_dir);
     }
 
     /// Drain key-value pairs into an sstable.
@@ -119,7 +109,7 @@ impl KVStore {
             Err(e) => panic!("Failed to lock. Reason: {}", e),
         }
 
-        if self.get_sstables_count() > 2 {
+        if self.get_sstables_count() > 1 {
             self.compaction();
         }
         self.memtable = BTreeMap::new();
@@ -130,13 +120,6 @@ impl KVStore {
     /// Set a key value pair in the store.
     pub fn set(&mut self, k: &[u8], v: &[u8]) {
         self.mem_size += (k.len() + v.len()) as u64;
-        if self.is_overflow() && self.memtable.is_empty() {
-            panic!(
-                "Store size ({} bytes) should be greater than \
-                    {} bytes (size of key-value pair being inserted)!",
-                self.max_bytes, self.mem_size
-            );
-        }
         if self.is_overflow() {
             debug!(
                 "{}",

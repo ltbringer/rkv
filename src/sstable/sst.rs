@@ -7,6 +7,8 @@ use std::fs::create_dir_all;
 use std::fs::{remove_file, File, OpenOptions};
 use std::io::{Read, Result, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
+use std::thread;
 use uuid::Uuid;
 
 #[derive(Clone)]
@@ -238,13 +240,48 @@ fn merge_two(
     Ok(())
 }
 
-pub fn merge_sstables(sstables: &Vec<SSTable>, sstable_dir: &Path) -> Result<SSTable> {
-    let mut merged_sstable = create_sstable(sstables.len(), sstable_dir);
-    for (sstable_old, sstable_new) in sstables.iter().zip(sstables.iter().skip(1)) {
-        merge_two(sstable_old, sstable_new, &mut merged_sstable, 100_000)?;
+fn merge_sstables(sstables: Vec<SSTable>, sstable_dir: &Path, n_sstables: usize) -> Vec<SSTable> {
+    let mut merged_sstables = Vec::new();
+    for pair in sstables.chunks(2) {
+        match pair.len() {
+            1 => {
+                let sstable = pair[0].clone();
+                merged_sstables.push(sstable);
+            }
+            2 => {
+                let sstable_old = pair[0].clone();
+                let sstable_new = pair[1].clone();
+                let mut merged_sstable = create_sstable(n_sstables, sstable_dir);
+                merge_two(&sstable_old, &sstable_new, &mut merged_sstable, 1000).unwrap();
+                sstable_old.delete();
+                sstable_new.delete();
+                merged_sstables.push(merged_sstable);
+            }
+            _ => unreachable!("SSTable length should be 1 or 2"),
+        }
     }
+    merged_sstables
+}
 
-    Ok(merged_sstable)
+pub fn sstable_compaction(
+    shared_sstables: Arc<Mutex<Vec<SSTable>>>,
+    sstable_dir: &Path,
+) -> Arc<Mutex<Vec<SSTable>>> {
+    let sstable_dir = Arc::new(sstable_dir.to_path_buf());
+    let mut n_sstables = shared_sstables.lock().unwrap().len();
+    let merged_sstables = thread::spawn(move || {
+        let mut sstables = shared_sstables.lock().unwrap();
+        while sstables.len() > 1 {
+            *sstables = merge_sstables(sstables.to_vec(), &sstable_dir, n_sstables);
+            n_sstables += 1;
+        }
+        sstables.len();
+        sstables.to_vec()
+    })
+    .join()
+    .unwrap();
+
+    Arc::new(Mutex::new(merged_sstables))
 }
 
 #[cfg(test)]
