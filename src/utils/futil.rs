@@ -1,4 +1,4 @@
-use crate::sstable::constants::{KEY_WORD, VALUE_WORD, WORD};
+use crate::sstable::constants::WORD;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use std::fs::File;
 use std::io::{Read, Result, Seek, SeekFrom, Write};
@@ -11,14 +11,6 @@ pub fn set_key(buf: &mut Vec<u8>, key_len: usize, key: &[u8]) -> Result<()> {
 pub fn set_value(buf: &mut Vec<u8>, value_len: usize, value: &[u8]) -> Result<()> {
     buf.write_u32::<LittleEndian>(value_len as u32)?;
     buf.write_all(value)
-}
-
-pub fn get_key_size(buf: &[u8], i: usize) -> usize {
-    u16::from_le_bytes(buf[i..i + KEY_WORD].try_into().unwrap()) as usize
-}
-
-pub fn get_value_size(buf: &[u8], i: usize) -> usize {
-    u32::from_le_bytes(buf[i..i + VALUE_WORD].try_into().unwrap()) as usize
 }
 
 pub fn key_value_at(pos: u64, index: &mut File, data: &mut File) -> Result<(Vec<u8>, Vec<u8>)> {
