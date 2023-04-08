@@ -22,11 +22,12 @@ use crate::sstable::sst::{create_sstable, sstable_compaction, SSTable};
 ///     assert_eq!(v.as_slice(), b"5");
 /// }
 /// ```
+#[derive(Clone)]
 pub struct KVStore {
     name: String,
     /// memtable is
-    memtable: BTreeMap<Vec<u8>, Vec<u8>>,
-    mem_size: u64,
+    memtable: Arc<Mutex<BTreeMap<Vec<u8>, Vec<u8>>>>,
+    mem_size: Arc<Mutex<u64>>,
     max_bytes: u64,
     sstables: Arc<Mutex<Vec<SSTable>>>,
     sstable_dir: PathBuf,
@@ -36,18 +37,22 @@ impl KVStore {
     pub fn new(name: String, size: u64, sstable_dir: PathBuf) -> Self {
         let mut store = KVStore {
             name,
-            memtable: BTreeMap::new(),
-            mem_size: 0,
+            memtable: Arc::new(Mutex::new(BTreeMap::new())),
+            mem_size: Arc::new(Mutex::new(0)),
             max_bytes: size,
             sstables: Arc::new(Mutex::new(vec![])),
             sstable_dir,
         };
-        store.discover_sstables();
+        let discovered_tables = store.discover_sstables();
+        store.sstables = Arc::new(Mutex::new(discovered_tables));
         store
     }
 
     fn is_overflow(&self) -> bool {
-        self.max_bytes < self.mem_size
+        match self.mem_size.lock() {
+            Ok(mem_size) => *mem_size >= self.max_bytes,
+            Err(e) => panic!("Failed to unlock. Reason: {}", e),
+        }
     }
 
     /// Track the number of sstables.
@@ -104,7 +109,7 @@ impl KVStore {
     /// Drain key-value pairs into an sstable.
     fn flush_memtable(&mut self) -> Result<()> {
         let mut sstable = create_sstable(self.get_sstables_count(), &self.sstable_dir.join(&self.name));
-        sstable.write(&self.memtable)?;
+        sstable.write(&self.memtable.lock().unwrap())?;
         match self.sstables.lock() {
             Ok(mut sstables) => sstables.push(sstable),
             Err(e) => panic!("Failed to lock. Reason: {}", e),
@@ -113,55 +118,68 @@ impl KVStore {
         if self.get_sstables_count() > 1 {
             self.compaction();
         }
-        self.memtable = BTreeMap::new();
-        self.mem_size = 0;
+        self.memtable = Arc::new(Mutex::new(BTreeMap::new()));
+        self.mem_size = Arc::new(Mutex::new(0));
         Ok(())
     }
 
     /// Set a key value pair in the store.
     pub fn set(&mut self, k: &[u8], v: &[u8]) {
-        self.mem_size += (k.len() + v.len()) as u64;
+        match self.mem_size.lock() {
+            Ok(mut mem_size) => *mem_size += (k.len() + v.len()) as u64,
+            Err(e) => panic!("Failed to lock. Reason: {}", e),
+        }
         if self.is_overflow() {
-            debug!(
-                "{}",
-                format!(
-                    "Size overflow, max-size={}, current-size={}",
-                    self.max_bytes, self.mem_size
-                )
-            );
+            debug!("Memtable is full. Flushing to disk");
 
             if let Err(e) = self.flush_memtable() {
                 panic!("Failed to flush memtable because {}", e);
             }
         }
-        self.memtable.insert(k.to_vec(), v.to_vec());
+        match self.memtable.lock() {
+            Ok(mut memtable) => memtable.insert(k.to_vec(), v.to_vec()),
+            Err(e) => panic!("Failed to lock. Reason: {}", e),
+        };
     }
 
     /// Get the value for a key stored previously
     pub fn get(&mut self, k: &[u8]) -> Option<Vec<u8>> {
-        if let Some(v) = self.memtable.get(k) {
-            if v == TOMBSTONE {
-                return None;
+        match self.memtable.lock() {
+            Ok(memtable) => {
+                if let Some(v) = memtable.get(k) {
+                    if v == TOMBSTONE {
+                        return None;
+                    }
+                    return Some(v.to_vec());
+                }
             }
-            return Some(v.to_vec());
+            Err(e) => panic!("Failed to lock. Reason: {}", e),
         }
-
         parallel_search(self.sstables.clone(), k.to_vec())
     }
 
     /// Remove a key value pair.
     pub fn delete(&mut self, k: &[u8]) {
-        if self.memtable.remove(k).is_some() {
-            return;
+
+        match self.memtable.lock() {
+            Ok(mut memtable) => memtable.insert(k.to_vec(), TOMBSTONE.to_vec()),
+            Err(e) => panic!("Failed to lock. Reason: {}", e),
         };
+
         if parallel_search(self.sstables.clone(), k.to_vec()).is_some() {
-            self.memtable.insert(k.to_vec(), TOMBSTONE.to_vec());
+            match self.mem_size.lock() {
+                Ok(mut mem_size) => *mem_size += k.len() as u64,
+                Err(e) => panic!("Failed to lock. Reason: {}", e),
+            }
         }
     }
 
     /// Get the current size of memtable.
     pub fn size(&self) -> u64 {
-        self.mem_size
+        match self.mem_size.lock() {
+            Ok(mem_size) => *mem_size,
+            Err(e) => panic!("Failed to lock. Reason: {}", e),
+        }
     }
 }
 
