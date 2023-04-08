@@ -7,12 +7,12 @@ RUN apk add --no-cache \
     gnuplot
 
 ARG N_KEYS
-ARG DAT_DIR
 ARG S3_URI
+ARG KEY_LENGTH
 
 ENV N_KEYS=${N_KEYS}
-ENV DAT_DIR=${DAT_DIR}
 ENV S3_URI=${S3_URI}
+ENV KEY_LENGTH=${KEY_LENGTH}
 
 COPY . .
 
