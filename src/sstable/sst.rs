@@ -257,6 +257,7 @@ pub fn sstable_compaction(
 #[cfg(test)]
 mod test {
     use super::*;
+    use std::io::Read;
     use std::panic::{self, AssertUnwindSafe};
     use tempfile::TempDir;
 
