@@ -10,6 +10,7 @@ log = "0.4.17"
 byteorder = "1.4.3"
 tempfile = "3.4.0"
 glob = "0.3.1"
+rand = "0.8.5"
 
 [dev-dependencies]
 criterion = { version = "0.4", features = ["html_reports"] }
