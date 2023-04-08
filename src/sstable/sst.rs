@@ -217,7 +217,7 @@ fn merge_two(
     while i < o_end {
         let (o_key, o_value) = futil::key_value_at(i, &mut o_index, &mut o_data)?;
         map.insert(o_key, o_value);
-        i += WORD as u64;
+        i += 1;
         if map.len() > log_size {
             merged_sstable.write(&map)?;
             map.clear();
@@ -227,7 +227,7 @@ fn merge_two(
     while j < n_end {
         let (n_key, n_value) = futil::key_value_at(j, &mut n_index, &mut n_data)?;
         map.insert(n_key, n_value);
-        j += WORD as u64;
+        j += 1;
         if map.len() > log_size {
             merged_sstable.write(&map)?;
             map.clear();
