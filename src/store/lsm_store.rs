@@ -224,26 +224,3 @@ fn parallel_search(shared_sstables: Arc<Mutex<Vec<SSTable>>>, k: Vec<u8>) -> Opt
     let result = result.lock().unwrap();
     result.clone()
 }
-
-fn compaction(sstables: &mut Vec<SSTable>, sstable_dir: &Path) -> SSTable {
-    let mut store: BTreeMap<Vec<u8>, Vec<u8>> = BTreeMap::new();
-    let n_sstables = sstables.len();
-    for sstable in &mut *sstables {
-        if let Ok(hashmap) = sstable.as_map() {
-            store.extend(hashmap)
-        }
-    }
-    let mut keys: Vec<Vec<u8>> = store.clone().into_keys().collect();
-    keys.sort();
-
-    let mut sstable = create_sstable(n_sstables, sstable_dir);
-    if let Err(e) = sstable.write(&store) {
-        panic!("Failed to write to sstable because {}", e);
-    }
-
-    for i_sstable in sstables {
-        i_sstable.delete();
-    }
-
-    sstable
-}
