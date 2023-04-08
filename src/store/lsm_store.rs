@@ -1,6 +1,5 @@
 use log::{debug, error};
 use std::io::Result;
-use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::{collections::BTreeMap, path::PathBuf};
