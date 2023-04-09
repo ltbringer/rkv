@@ -35,22 +35,19 @@ To follow from scratch, check the releases and tags section. This will help you 
   - [ ] Checksum verification.
   - [ ] RBAC over APIs
   - [ ] Encryption
-- [ ] Communication between distributed nodes.
-- [ ] Maintaining High Availability.
-- [ ] Resolving partition failures.
 - [ ] Write a simple client.
 
 ## Benchmarks
 
-|            | Lower bound  | Estimate     | Upper bound  |
-|------------|--------------|--------------|--------------|
-| Slope      | 71.296 µs    | 71.700 µs    | 71.981 µs    |
-| Throughput | 217.07 KiB/s | 217.92 KiB/s | 219.16 KiB/s |
-| R²         | 0.9987940    | 0.9993731    | 0.9990916    |
-| Mean       | 71.203 µs    | 71.434 µs    | 71.687 µs    |
-| Std. Dev.  | 221.35 ns    | 415.43 ns    | 531.58 ns    |
-| Median     | 71.094 µs    | 71.313 µs    | 71.751 µs    |
-| MAD        | 35.104 ns    | 462.50 ns    | 716.93 ns    |
+|             | Lower bound   | Estimate      | Upper bound   |
+|-------------|---------------|---------------|---------------|
+| Slope       | 45.614 µs     | 45.789 µs     | 45.983 µs     |
+| Throughput  | 20.740 MiB/s  | 20.828 MiB/s  | 20.908 MiB/s  |
+| R²          | 0.9892351     | 0.9903021     | 0.9889759     |
+| Mean        | 45.754 µs     | 45.937 µs     | 46.136 µs     |
+| Std. Dev.   | 516.75 ns     | 692.24 ns     | 875.30 ns     |
+| Median      | 45.621 µs     | 45.837 µs     | 46.148 µs     |
+| MAD         | 383.42 ns     | 708.86 ns     | 862.66 ns     |
 
 [These benchmarks](https://ltbringer.s3.ap-south-1.amazonaws.com/projects/rkv/reports/report/index.html) were calculated using [Criterion](https://github.com/bheisler/criterion.rs) on infrastructure created by [benchmark-rkv](https://github.com/ltbringer/benchmark-rkv).
 
