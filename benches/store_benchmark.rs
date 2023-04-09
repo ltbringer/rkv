@@ -37,7 +37,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     };
 
     let n_threads = n_threads.clamp(1, max_threads);
-    let key_per_table = 50_000;
+    let key_per_table = 500_000;
     let size_of_kv_pair = key_length + key_length;
     let bytes_per_table = key_per_table * size_of_kv_pair;
     let mut store = KVStore::new("benchmark".to_owned(), bytes_per_table, path.clone());
