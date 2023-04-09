@@ -102,8 +102,7 @@ impl KVStore {
     /// These will occupy extra space in multiple sstables. We can periodically clean up and
     /// combine sstables into single table. Since this process is also slow, we run it on a separate thread.
     pub fn compaction(&mut self) {
-        let sstable_dir = self.sstable_dir.clone();
-        self.sstables = sstable_compaction(self.sstables.clone(), &sstable_dir);
+        self.sstables = sstable_compaction(self.sstables.clone(), &self.sstable_dir.join(&self.name));
     }
 
     /// Drain key-value pairs into an sstable.
