@@ -14,8 +14,8 @@ fn rand_string(l: usize) -> String {
         .collect()
 }
 
-pub fn criterion_benchmark(c: &mut Criterion) {
-    println!("Creating temp dir ...");
+pub fn get_benchmarks(c: &mut Criterion) {
+    println!("Benchmark store.get() ...");
     let temp_dir = tempdir().unwrap();
     let path = temp_dir.path().to_path_buf();
 
@@ -116,7 +116,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
             for (i, k) in test_keys.iter().enumerate() {
                 let size = k.len() + k.len();
                 group.throughput(Throughput::Bytes(size as u64));
-                group.bench_with_input(BenchmarkId::from_parameter(i), k, |b, k| {
+                group.bench_with_input(BenchmarkId::from_parameter(i + 1), k, |b, k| {
                     b.iter(|| store.get(k.as_bytes()))
                 });
             }
@@ -129,5 +129,87 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     temp_dir.close().unwrap();
 }
 
-criterion_group!(benches, criterion_benchmark);
+pub fn set_benchmark(c: &mut Criterion) {
+    println!("Benchmark store.set() ...");
+    let temp_dir = tempdir().unwrap();
+    let path = temp_dir.path().to_path_buf();
+
+    let default_n_keys = 100_000;
+    let n_keys = match env::var("N_KEYS") {
+        Ok(env_n_keys) => env_n_keys.parse().unwrap_or(default_n_keys),
+        Err(_) => default_n_keys,
+    };
+
+    let key_length: usize = match env::var("KEY_LENGTH") {
+        Ok(key_length) => key_length.parse().unwrap_or(500),
+        Err(_) => 500,
+    }; // Max 65535
+
+    let max_threads = num_cpus::get();
+    let n_threads: usize = match env::var("THREADS") {
+        Ok(n_threads) => n_threads.parse().unwrap_or(max_threads),
+        Err(_) => max_threads,
+    };
+
+    let n_threads = n_threads.clamp(1, max_threads);
+    let key_per_table = 100_000;
+    let size_of_kv_pair = key_length + key_length;
+    let bytes_per_table = key_per_table * size_of_kv_pair;
+    let store = KVStore::new("benchmark".to_owned(), bytes_per_table, path.clone());
+    let step = n_keys / 5;
+    let mut group = c.benchmark_group(format!(
+        "store/set/{}-keys-ofsize-{}-each",
+        n_keys, key_length
+    ));
+
+    println!(
+        "PARAMS:
+        , n_keys={n_keys}
+        , n_threads={n_threads}
+        , max_threads={max_threads}
+        , key_length={key_length}
+        , step={step}
+        , key_per_table={key_per_table} (before compaction)",
+        n_keys = n_keys,
+        n_threads = n_threads,
+        max_threads = max_threads,
+        key_length = key_length,
+        key_per_table = key_per_table,
+        step = step
+    );
+
+    println!("Inserting {} keys ...", n_keys);
+    
+    group.significance_level(0.1).sample_size(50);
+
+    for _ in 0..n_keys - 6 {
+        let mut store = store.clone();
+        let k = rand_string(key_length);
+        store.set(k.as_bytes(), k.as_bytes());
+    }
+
+    for i in n_keys - 6..n_keys {
+        let mut store = store.clone();
+        let k = rand_string(key_length);
+        group.throughput(Throughput::Bytes(k.len() as u64));
+        group.bench_with_input(BenchmarkId::from_parameter(n_keys - i), &k, |b, _| {
+            b.iter(|| {
+                store.set(k.as_bytes(), k.as_bytes());
+            })
+        });
+    }
+
+    println!("Finished inserting {} keys.", n_keys);
+
+    group.finish();
+    drop(path);
+    temp_dir.close().unwrap();
+}
+
+
+criterion_group!(
+    benches,
+    get_benchmarks,
+    set_benchmark
+);
 criterion_main!(benches);
