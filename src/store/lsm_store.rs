@@ -27,14 +27,14 @@ pub struct KVStore {
     name: String,
     /// memtable is
     memtable: Arc<Mutex<BTreeMap<Vec<u8>, Vec<u8>>>>,
-    mem_size: Arc<Mutex<u64>>,
-    max_bytes: u64,
+    mem_size: Arc<Mutex<usize>>,
+    max_bytes: usize,
     sstables: Arc<Mutex<Vec<SSTable>>>,
     sstable_dir: PathBuf,
 }
 
 impl KVStore {
-    pub fn new(name: String, size: u64, sstable_dir: PathBuf) -> Self {
+    pub fn new(name: String, size: usize, sstable_dir: PathBuf) -> Self {
         let mut store = KVStore {
             name,
             memtable: Arc::new(Mutex::new(BTreeMap::new())),
@@ -122,7 +122,7 @@ impl KVStore {
     }
 
     /// Drain key-value pairs into an sstable.
-    fn flush_memtable(&mut self) -> Result<()> {
+    pub fn flush_memtable(&mut self) -> Result<()> {
         let mut sstable = create_sstable(
             self.get_last_sstable_level(),
             self.name.clone(),
@@ -145,7 +145,7 @@ impl KVStore {
     /// Set a key value pair in the store.
     pub fn set(&mut self, k: &[u8], v: &[u8]) {
         match self.mem_size.lock() {
-            Ok(mut mem_size) => *mem_size += (k.len() + v.len()) as u64,
+            Ok(mut mem_size) => *mem_size += k.len() + v.len(),
             Err(e) => panic!("Failed to lock. Reason: {}", e),
         }
         if self.is_overflow() {
@@ -186,14 +186,14 @@ impl KVStore {
 
         if parallel_search(self.sstables.clone(), k.to_vec()).is_some() {
             match self.mem_size.lock() {
-                Ok(mut mem_size) => *mem_size += k.len() as u64,
+                Ok(mut mem_size) => *mem_size += k.len(),
                 Err(e) => panic!("Failed to lock. Reason: {}", e),
             }
         }
     }
 
     /// Get the current size of memtable.
-    pub fn size(&self) -> u64 {
+    pub fn size(&self) -> usize {
         match self.mem_size.lock() {
             Ok(mem_size) => *mem_size,
             Err(e) => panic!("Failed to lock. Reason: {}", e),
