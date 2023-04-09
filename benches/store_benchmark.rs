@@ -157,6 +157,8 @@ pub fn set_benchmark(c: &mut Criterion) {
     let bytes_per_table = key_per_table * size_of_kv_pair;
     let store = KVStore::new("benchmark".to_owned(), bytes_per_table, path.clone());
     let step = n_keys / 5;
+    let ctr: Arc<Mutex<u64>> = Arc::new(Mutex::new(0));
+    let mut thread_handlers = vec![];
     let mut group = c.benchmark_group(format!(
         "store/set/{}-keys-ofsize-{}-each",
         n_keys, key_length
@@ -182,10 +184,27 @@ pub fn set_benchmark(c: &mut Criterion) {
 
     group.significance_level(0.1).sample_size(50);
 
-    for _ in 0..n_keys - 6 {
+
+    for chunk in 0..n_threads - 6 {
         let mut store = store.clone();
-        let k = rand_string(key_length);
-        store.set(k.as_bytes(), k.as_bytes());
+        let ctr = ctr.clone();
+        let handle = thread::spawn(move || {
+            let start = chunk * (n_keys / n_threads);
+            let end = start + (n_keys / n_threads);
+
+            for _ in start..end {
+                let k = rand_string(key_length);
+                store.set(k.as_bytes(), k.as_bytes());
+                match ctr.lock() {
+                    Ok(mut ctr) => {
+                        *ctr += 1;
+                        println!("Inserted key: ({}/{})", ctr, n_keys);
+                    }
+                    Err(e) => panic!("Poisoned lock: {:?}", e),
+                }
+            }
+        });
+        thread_handlers.push(handle);
     }
 
     for i in n_keys - 6..n_keys {
