@@ -15,7 +15,7 @@ mod test {
                 Err(_) => panic!("Failed creating tempdir."),
             };
             let filename = temp_dir.path().join("test.sstable");
-            let mut sstable = match SSTable::new(filename, true, true, true) {
+            let mut sstable = match SSTable::new(filename, 1, true, true, true) {
                 Ok(sst) => sst,
                 Err(_) => panic!("Failed creating sstable."),
             };
