@@ -222,7 +222,7 @@ fn merge_two(
     Ok(())
 }
 
-fn merge_sstables(sstables: Vec<SSTable>, sstable_dir: &Path, n_sstables: usize) -> Vec<SSTable> {
+fn merge_sstables(sstables: Vec<SSTable>, name: String, sstable_dir: &Path, level: u16) -> Vec<SSTable> {
     let mut merged_sstables = Vec::new();
     for pair in sstables.chunks(2) {
         match pair.len() {
@@ -233,7 +233,7 @@ fn merge_sstables(sstables: Vec<SSTable>, sstable_dir: &Path, n_sstables: usize)
             2 => {
                 let sstable_old = pair[0].clone();
                 let sstable_new = pair[1].clone();
-                let mut merged_sstable = create_sstable(n_sstables, sstable_dir);
+                let mut merged_sstable = create_sstable(level, name.clone(), sstable_dir);
                 merge_two(&sstable_old, &sstable_new, &mut merged_sstable, 1000).unwrap();
                 sstable_old.delete();
                 sstable_new.delete();
@@ -247,15 +247,22 @@ fn merge_sstables(sstables: Vec<SSTable>, sstable_dir: &Path, n_sstables: usize)
 
 pub fn sstable_compaction(
     shared_sstables: Arc<Mutex<Vec<SSTable>>>,
+    name: String,
+    level: u16,
     sstable_dir: &Path,
 ) -> Arc<Mutex<Vec<SSTable>>> {
     let sstable_dir = Arc::new(sstable_dir.to_path_buf());
-    let mut n_sstables = shared_sstables.lock().unwrap().len();
+    let this_level = Arc::new(Mutex::new(level));
     let merged_sstables = thread::spawn(move || {
         let mut sstables = shared_sstables.lock().unwrap();
         while sstables.len() > 1 {
-            *sstables = merge_sstables(sstables.to_vec(), &sstable_dir, n_sstables);
-            n_sstables += 1;
+            match this_level.lock() {
+                Ok(mut level) => {
+                    *level += 1;
+                    *sstables = merge_sstables(sstables.to_vec(), name.clone(), &sstable_dir, *level);
+                }
+                Err(poisoned) => panic!("Poisoned lock: {:?}", poisoned)
+            }
         }
         sstables.len();
         sstables.to_vec()
