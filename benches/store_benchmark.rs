@@ -25,7 +25,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         Err(_) => default_n_keys,
     };
 
-    let key_length = match env::var("KEY_LENGTH") {
+    let key_length: usize = match env::var("KEY_LENGTH") {
         Ok(key_length) => key_length.parse().unwrap_or(500),
         Err(_) => 500,
     }; // Max 65535
