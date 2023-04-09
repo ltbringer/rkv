@@ -179,7 +179,7 @@ pub fn set_benchmark(c: &mut Criterion) {
     );
 
     println!("Inserting {} keys ...", n_keys);
-    
+
     group.significance_level(0.1).sample_size(50);
 
     for _ in 0..n_keys - 6 {
@@ -206,10 +206,5 @@ pub fn set_benchmark(c: &mut Criterion) {
     temp_dir.close().unwrap();
 }
 
-
-criterion_group!(
-    benches,
-    get_benchmarks,
-    set_benchmark
-);
+criterion_group!(benches, get_benchmarks, set_benchmark);
 criterion_main!(benches);
