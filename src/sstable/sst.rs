@@ -34,7 +34,13 @@ impl SSTable {
      * `Key length` is trying to specify. The same explains the following
      * `Val length`.
      */
-    pub fn new(filename: PathBuf, level: u16, read: bool, write: bool, create: bool) -> Result<SSTable> {
+    pub fn new(
+        filename: PathBuf,
+        level: u16,
+        read: bool,
+        write: bool,
+        create: bool,
+    ) -> Result<SSTable> {
         Ok(SSTable {
             dat: filename.clone(),
             index: filename.with_extension("index"),
@@ -222,7 +228,12 @@ fn merge_two(
     Ok(())
 }
 
-fn merge_sstables(sstables: Vec<SSTable>, name: String, sstable_dir: &Path, level: u16) -> Vec<SSTable> {
+fn merge_sstables(
+    sstables: Vec<SSTable>,
+    name: String,
+    sstable_dir: &Path,
+    level: u16,
+) -> Vec<SSTable> {
     let mut merged_sstables = Vec::new();
     for pair in sstables.chunks(2) {
         match pair.len() {
@@ -259,9 +270,10 @@ pub fn sstable_compaction(
             match this_level.lock() {
                 Ok(mut level) => {
                     *level += 1;
-                    *sstables = merge_sstables(sstables.to_vec(), name.clone(), &sstable_dir, *level);
+                    *sstables =
+                        merge_sstables(sstables.to_vec(), name.clone(), &sstable_dir, *level);
                 }
-                Err(poisoned) => panic!("Poisoned lock: {:?}", poisoned)
+                Err(poisoned) => panic!("Poisoned lock: {:?}", poisoned),
             }
         }
         sstables.len();

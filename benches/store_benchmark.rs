@@ -31,7 +31,6 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     }; // Max 65535
 
     let max_threads = num_cpus::get();
-
     let n_threads: usize = match env::var("THREADS") {
         Ok(n_threads) => n_threads.parse().unwrap_or(max_threads),
         Err(_) => max_threads,
@@ -76,7 +75,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
             for i in start..end {
                 let k = rand_string(key_length);
-                if i % step == 0  {
+                if i % step == 0 {
                     match test_keys.lock() {
                         Ok(mut test_keys) => test_keys.push(k.clone()),
                         Err(e) => panic!("Poisoned lock: {:?}", e),
@@ -87,7 +86,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                     Ok(mut ctr) => {
                         *ctr += 1;
                         println!("Inserted key: ({}/{})", ctr, n_keys);
-                    },
+                    }
                     Err(e) => panic!("Poisoned lock: {:?}", e),
                 }
             }
@@ -120,8 +119,8 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                 group.bench_with_input(BenchmarkId::from_parameter(i), k, |b, k| {
                     b.iter(|| store.get(k.as_bytes()))
                 });
-            }        
-        },
+            }
+        }
         Err(e) => panic!("Poisoned lock: {:?}", e),
     }
 
