@@ -101,7 +101,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     println!("Finished inserting {} keys.", n_keys);
 
     let mut group = c.benchmark_group(format!(
-        "get-perf_{}-keys-ofsize-{}-each",
+        "store/get/{}-keys-ofsize-{}-each",
         n_keys, key_length
     ));
 
