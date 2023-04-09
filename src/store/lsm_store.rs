@@ -102,6 +102,9 @@ impl KVStore {
     /// These will occupy extra space in multiple sstables. We can periodically clean up and
     /// combine sstables into single table. Since this process is also slow, we run it on a separate thread.
     pub fn compaction(&mut self) {
+        self.sstables = sstable_compaction(self.sstables.clone(), self.name.clone(), self.get_last_sstable_level(), &self.sstable_dir);
+    }
+
     fn get_last_sstable_level(&self) -> u16 {
         match self.sstables.lock() {
             Ok(sstables) => {
@@ -122,6 +125,8 @@ impl KVStore {
     fn flush_memtable(&mut self) -> Result<()> {
         let mut sstable = create_sstable(
             self.get_last_sstable_level(),
+            self.name.clone(),
+            &self.sstable_dir,
         );
         sstable.write(&self.memtable.lock().unwrap())?;
         match self.sstables.lock() {
