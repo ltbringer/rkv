@@ -49,7 +49,7 @@ To follow from scratch, check the releases and tags section. This will help you 
 | Median      | 45.621 µs     | 45.837 µs     | 46.148 µs     |
 | MAD         | 383.42 ns     | 708.86 ns     | 862.66 ns     |
 
-[These benchmarks](https://ltbringer.s3.ap-south-1.amazonaws.com/projects/rkv/reports/0.0.6/report/index.html) were calculated using [Criterion](https://github.com/bheisler/criterion.rs) on infrastructure created by [benchmark-rkv](https://github.com/ltbringer/benchmark-rkv).
+[These benchmarks](https://ltbringer.s3.ap-south-1.amazonaws.com/projects/rkv/reports/0.0.6/10000000/500/report/index.html) were calculated using [Criterion](https://github.com/bheisler/criterion.rs) on infrastructure created by [benchmark-rkv](https://github.com/ltbringer/benchmark-rkv).
 
 We used a `c6a.2xlarge` AWS EC2 instance. This has 8 vCPU and 16GiB memory. We also mount a 1TB `gp3` EBS volume to use as the data directory for the database.
 
