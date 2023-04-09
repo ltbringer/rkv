@@ -285,9 +285,10 @@ mod test {
         let result = panic::catch_unwind(AssertUnwindSafe(|| {
             let temp_dir = TempDir::new().unwrap();
             let sstable_dir = temp_dir.path();
-            let mut sstable_o = create_sstable(0, sstable_dir);
-            let mut sstable_n = create_sstable(1, sstable_dir);
-            let mut sstable_m = create_sstable(2, sstable_dir);
+            let name = "test_merge_n_sstable_large".to_owned();
+            let mut sstable_o = create_sstable(0, name.clone(), sstable_dir);
+            let mut sstable_n = create_sstable(1, name.clone(), sstable_dir);
+            let mut sstable_m = create_sstable(2, name, sstable_dir);
             let (mut dat, _) = sstable_m.open().unwrap();
             let mut map = BTreeMap::new();
             map.insert(b"key1".to_vec(), b"value1".to_vec());
@@ -332,9 +333,10 @@ mod test {
         let result = panic::catch_unwind(AssertUnwindSafe(|| {
             let temp_dir = TempDir::new().unwrap();
             let sstable_dir = temp_dir.path();
-            let mut sstable_o = create_sstable(0, sstable_dir);
-            let mut sstable_n = create_sstable(1, sstable_dir);
-            let mut sstable_m = create_sstable(2, sstable_dir);
+            let name = "test_merge_o_sstable_large".to_owned();
+            let mut sstable_o = create_sstable(0, name.clone(), sstable_dir);
+            let mut sstable_n = create_sstable(1, name.clone(), sstable_dir);
+            let mut sstable_m = create_sstable(2, name, sstable_dir);
             let (mut dat, _) = sstable_m.open().unwrap();
             let mut map = BTreeMap::new();
             map.insert(b"key2".to_vec(), b"value4".to_vec());
