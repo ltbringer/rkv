@@ -147,14 +147,14 @@ impl SSTable {
     }
 }
 
-pub fn create_sstable(n_sstables: usize, sstable_dir: &Path) -> SSTable {
+pub fn create_sstable(level: u16, name: String, sstable_dir: &Path) -> SSTable {
     let uuid = Uuid::new_v4();
-    let idx = n_sstables + 1;
-    let slug = format!("{}-{}.{}", idx, uuid, RKV);
-    let dirname = sstable_dir.join(RKV).join("data");
+    let this_level = level + 1;
+    let slug = format!("{}-{}.{}", this_level, uuid, RKV);
+    let dirname = sstable_dir.join(name).join(RKV).join("data");
     create_dir_all(dirname.clone()).unwrap();
     let filename = dirname.join(slug);
-    SSTable::new(filename, true, true, true).unwrap()
+    SSTable::new(filename, this_level, true, true, true).unwrap()
 }
 
 fn merge_two(
