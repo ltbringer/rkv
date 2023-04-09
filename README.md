@@ -21,6 +21,15 @@ To follow from scratch, check the releases and tags section. This will help you 
   - [x] Parallel Search
   - [x] Binary Search over SSTables
   - [ ] Compression
+- [ ] Distributed Database.
+  - [ ] Choose from: master-slave, peer-to-peer, and client-server. (Read about them and other options)
+  - [ ] Partitioning scheme. Distribute data across multiple nodes in the distributed system.
+  - [ ] Communication protocol: (Bias towards gRPC).
+  - [ ] Node discovery and membership: Nodes should be able to discover each other and maintain a membership list. (This is important for fault tolerance and scalability, as nodes can join or leave the distributed system dynamically.)
+  - [ ] Distributed Consensus: Raft.
+  - [ ] Handle Concurrency: Implementing distributed locks, transactions, and other concurrency control mechanisms.
+  - [ ] Fault Tolerance: Handle failures like: node crashes, network partitions, and communication failures. This means implementing replication, leader election, etc.
+  - [ ] Monitor and Observability: A distributed system should be monitored for performance, availability, and other metrics. Also build tools for debugging and troubleshooting issues in the distributed system.
 - [ ] Security.
   - [ ] File level permissions.
   - [ ] Checksum verification.
