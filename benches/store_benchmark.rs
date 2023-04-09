@@ -95,6 +95,9 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         thread_handlers.push(handle);
     }
 
+    // so that all the reads are from the sstables.
+    store.flush_memtable().unwrap();
+
     for handle in thread_handlers {
         handle.join().unwrap();
         println!("Joined thread ...");
