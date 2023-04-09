@@ -15,6 +15,7 @@ use uuid::Uuid;
 pub struct SSTable {
     dat: PathBuf,
     index: PathBuf,
+    level: u16,
     read: bool,
     write: bool,
     create: bool,
@@ -33,10 +34,11 @@ impl SSTable {
      * `Key length` is trying to specify. The same explains the following
      * `Val length`.
      */
-    pub fn new(filename: PathBuf, read: bool, write: bool, create: bool) -> Result<SSTable> {
+    pub fn new(filename: PathBuf, level: u16, read: bool, write: bool, create: bool) -> Result<SSTable> {
         Ok(SSTable {
             dat: filename.clone(),
             index: filename.with_extension("index"),
+            level,
             read,
             write,
             create,
@@ -74,6 +76,10 @@ impl SSTable {
             .open(self.index.clone())?;
 
         Ok((dat, index))
+    }
+
+    pub fn get_level(&self) -> u16 {
+        self.level
     }
 
     /**

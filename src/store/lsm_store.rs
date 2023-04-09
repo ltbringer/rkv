@@ -74,7 +74,7 @@ impl KVStore {
         let glob_pattern = format!("{}/*.{}", sstable_dir_str, RKV);
         for entry in glob(&glob_pattern).expect("Failed to read glob pattern") {
             match entry {
-                Ok(path) => match SSTable::new(path.clone(), true, true, false) {
+                Ok(path) => match SSTable::new(path.clone(), 0, true, true, false) {
                     Ok(sstable) => sstables.push(sstable),
                     Err(e) => error!(
                         "Failed to read sstable {} because {}",
@@ -102,14 +102,26 @@ impl KVStore {
     /// These will occupy extra space in multiple sstables. We can periodically clean up and
     /// combine sstables into single table. Since this process is also slow, we run it on a separate thread.
     pub fn compaction(&mut self) {
-        self.sstables = sstable_compaction(self.sstables.clone(), &self.sstable_dir.join(&self.name));
+    fn get_last_sstable_level(&self) -> u16 {
+        match self.sstables.lock() {
+            Ok(sstables) => {
+                if sstables.is_empty() {
+                    0
+                } else {
+                    match sstables.last() {
+                        Some(sstable) => sstable.get_level(),
+                        None => 0,
+                    }
+                }
+            }
+            Err(e) => panic!("Failed to lock. Reason: {}", e),
+        }
     }
 
     /// Drain key-value pairs into an sstable.
     fn flush_memtable(&mut self) -> Result<()> {
         let mut sstable = create_sstable(
-            self.get_sstables_count(),
-            &self.sstable_dir.join(&self.name),
+            self.get_last_sstable_level(),
         );
         sstable.write(&self.memtable.lock().unwrap())?;
         match self.sstables.lock() {
