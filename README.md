@@ -37,6 +37,11 @@ To follow from scratch, check the releases and tags section. This will help you 
   - [ ] Encryption
 - [ ] Write a simple client.
 
+### Reading List
+
+1. [What is Consistent Hashing and Where is it used?](https://www.youtube.com/watch?v=zaRkONvyGr8&ab_channel=GauravSen)
+2. [Distributed Systems in One Lesson by Tim Berglund](https://www.youtube.com/watch?v=Y6Ev8GIlbxc&ab_channel=DevoxxPoland)
+
 ## Benchmarks
 
 |             | Lower bound   | Estimate      | Upper bound   |
